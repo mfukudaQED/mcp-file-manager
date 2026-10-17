@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MCP File Manager</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font: 14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+      --bg: #fff; --surface: #f7f8fb; --side: #fafbfc; --ink: #202738;
+      --muted: #6e7888; --border: #e0e4ea; --accent: #5d49ae;
+      --selected: #eeebfa; --hover: #eeeff4; --error: #bd3449;
+      --code: #fbfbfe; --keyword: #8451bd; --string: #147d64;
+      --number: #b05e13; --comment: #728091;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {--bg:#171922;--surface:#20232f;--side:#1c1f2a;--ink:#e7e9ef;
+        --muted:#a0a7b6;--border:#383d4b;--accent:#b3a0ff;
+        --selected:#342b52;--hover:#2b2e3c;--error:#ff8393;--code:#171b27;
+        --keyword:#c6a3ff;--string:#8fe0af;--number:#ffca94;--comment:#929cb4;}
+    }
+    * {box-sizing:border-box}
+    body {margin:0;background:var(--bg);color:var(--ink);min-width:0}
+    button,input,textarea {font:inherit}
+    button {cursor:pointer;background:transparent;color:inherit;border:1px solid var(--border);
+      border-radius:8px;padding:7px 11px;min-height:34px}
+    button:hover:not(:disabled) {background:var(--hover)}
+    button:disabled {opacity:.45;cursor:default}
+    button:focus-visible,input:focus-visible,textarea:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+    .top {display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)}
+    .logo {font-size:22px;line-height:1}
+    h1 {font-size:17px;margin:0}
+    .caption,.subtle {font-size:12px;color:var(--muted)}
+    .spacer {flex:1}
+    .connect {color:var(--accent);font-size:12px;white-space:nowrap}
+    .bar {display:flex;align-items:center;gap:7px;padding:10px 14px;background:var(--surface);flex-wrap:wrap}
+    .path-input {flex:1;min-width:180px;max-width:100%;padding:8px 10px;border:1px solid var(--border);
+      border-radius:8px;background:var(--bg);color:var(--ink)}
+    .primary {background:var(--accent);color:white;border-color:var(--accent)}
+    .primary:hover:not(:disabled) {filter:brightness(.95);background:var(--accent)}
+    #status {margin:0;padding:6px 15px;color:var(--muted);font-size:12px;min-height:29px}
+    #status.error {color:var(--error)}
+    .workspace {display:grid;grid-template-columns:minmax(200px,28%) minmax(0,1fr);height: min(73vh,760px);
+      min-height:360px;border-top:1px solid var(--border)}
+    .sidebar {display:flex;min-height:0;flex-direction:column;border-right:1px solid var(--border);background:var(--side)}
+    .section-title {display:flex;align-items:center;gap:8px;padding:10px 12px 7px;font-weight:650;font-size:12px}
+    .section-title button {min-height:24px;padding:1px 7px;font-size:12px}
+    .directory {font-size:11px;color:var(--muted);overflow-wrap:anywhere;padding:0 12px 5px}
+    #entries {overflow:auto;padding:0 6px 8px;flex:1;min-height:90px}
+    #outline {overflow:auto;padding:0 6px 10px;max-height:33%;border-top:1px solid var(--border)}
+    .nav-item {display:flex;width:100%;text-align:left;align-items:center;gap:6px;padding:6px 8px;border:0;
+      min-height:30px;font-size:12px;line-height:1.35;border-radius:6px;overflow-wrap:anywhere}
+    .nav-item:hover {background:var(--hover)}
+    .tree-children {margin-left:12px;border-left:1px solid var(--border);padding-left:4px}
+    .tree-row {display:flex;gap:0;align-items:center}
+    .tree-row > .nav-item {flex:1;min-width:0}
+    .twisty {flex:0 0 24px;border:0;min-height:26px;padding:0;border-radius:4px}
+    .nav-selected {background:var(--selected)}
+    .doc {min-width:0;display:flex;flex-direction:column}
+    .doc-head {padding:13px 17px 10px;border-bottom:1px solid var(--border)}
+    .filename {margin:0;font-size:16px;overflow-wrap:anywhere}
+    .file-path {display:block;font-size:11px;color:var(--muted);overflow-wrap:anywhere;margin-top:2px}
+    .meta {font-size:11px;color:var(--muted);margin-top:5px}
+    .tabs {display:flex;gap:3px;overflow-x:auto;border-bottom:1px solid var(--border);padding:5px 9px;background:var(--surface)}
+    .tab {display:inline-flex;gap:6px;align-items:center;white-space:nowrap;max-width:190px;min-width:80px;padding:4px 7px;background:var(--bg);font-size:12px}
+    .tab[aria-selected="true"] {border-color:var(--accent);background:var(--selected)}
+    .tab span {overflow:hidden;text-overflow:ellipsis}
+    .tab .close-tab {border:0;min-height:22px;padding:0 5px;font-size:16px}
+    .search-bar {display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:7px 13px;border-bottom:1px solid var(--border)}
+    .search-bar input {min-width:90px;flex:1;border:1px solid var(--border);border-radius:7px;padding:6px 8px;background:var(--bg);color:var(--ink)}
+    .search-bar button {min-height:28px;padding:3px 8px}
+    .find-hit {background:#f9dd71;color:#1a1722;border-radius:2px}
+    .find-hit.current {outline:2px solid var(--accent);outline-offset:1px}
+        .doc-actions {display:flex;align-items:center;gap:7px;padding:9px 15px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+    .view-switch {display:inline-flex;gap:3px;border-radius:8px;border:1px solid var(--border);padding:3px}
+    .view-switch button {min-height:27px;border:0;padding:3px 12px;font-size:12px}
+    .view-switch button[aria-pressed="true"] {background:var(--selected);color:var(--accent);font-weight:650}
+    .content {flex:1;min-height:0;overflow:auto;background:var(--bg);padding:17px}
+    pre.source {white-space:pre;overflow:auto;tab-size:4;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      padding:0;margin:0;min-height:200px;color:var(--ink)}
+    pre.source code {font:inherit}
+    .hljs-keyword,.hljs-built_in,.hljs-type,.hljs-title {color:var(--keyword)}
+    .hljs-string,.hljs-attr,.hljs-addition {color:var(--string)}
+    .hljs-number,.hljs-literal,.hljs-symbol {color:var(--number)}
+    .hljs-comment,.hljs-quote,.hljs-meta {color:var(--comment)}
+    .history-panel {padding:12px 16px;border-bottom:1px solid var(--border);max-height:310px;overflow:auto}
+    .history-panel[hidden], #diff-panel[hidden] {display:none}
+    .history-panel .history-row {display:flex;gap:8px;align-items:center;margin:5px 0}
+    .history-panel pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:150px;overflow:auto}
+    .editor-host {width:100%;height:100%;min-height:240px;border:1px solid var(--border);
+      border-radius:6px;overflow:hidden;background:var(--bg)}
+    #editor-pane[hidden] {display:none}
+    .keymap-select {display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+    .keymap-select select {background:var(--bg);color:var(--ink);border:1px solid var(--border);
+      border-radius:6px;padding:5px 7px;font:inherit}
+    .markdown {font-size:14px;max-width:900px;overflow-wrap:anywhere}
+    .markdown h1,.markdown h2,.markdown h3,.markdown h4 {line-height:1.35;margin:1.35em 0 .6em}
+    .markdown h1 {font-size:24px;border-bottom:1px solid var(--border);padding-bottom:.3em}
+    .markdown h2 {font-size:19px;border-bottom:1px solid var(--border);padding-bottom:.25em}
+    .markdown h3 {font-size:16px}
+    .markdown p,.markdown li {line-height:1.75}
+    .markdown pre {padding:12px;overflow:auto;border-radius:8px;background:var(--code)}
+    .markdown code {font:12.5px ui-monospace,SFMono-Regular,Consolas,monospace;background:var(--surface);
+      border-radius:3px;padding:2px 4px}
+    .markdown pre code {background:none;padding:0}
+    .markdown blockquote {border-left:3px solid var(--accent);margin:1em 0;padding:.4em 1em;color:var(--muted)}
+    .markdown table {border-collapse:collapse;display:block;max-width:100%;overflow:auto}
+    .markdown th,.markdown td {border:1px solid var(--border);padding:6px 10px}
+    .markdown a {color:var(--accent)}
+    .markdown hr {border:0;border-top:1px solid var(--border)}
+    .doc-footer {display:flex;align-items:center;gap:10px;padding:10px 15px;border-top:1px solid var(--border)}
+    .note {font-size:11px;color:var(--muted)}
+    [hidden] {display:none!important}
+    @media(max-width:690px) {
+      .workspace {grid-template-columns:minmax(0,1fr);height:auto;min-height:0}
+      .sidebar {max-height:260px;border-right:0;border-bottom:1px solid var(--border)}
+      #outline {max-height:110px}
+      .doc {min-height:340px}
+      .content {max-height:65vh}
+      .top {padding:9px 12px}
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <span class="logo" aria-hidden="true">📂</span>
+    <div><h1>MCP File Manager</h1><div class="caption">ohtaka · Text viewer and editor · UI v15</div></div>
+    <div class="spacer"></div><span class="connect" id="connection">○ Disconnected</span>
+  </header>
+  <div class="bar">
+    <label for="path" class="caption">Path</label>
+    <input class="path-input" id="path" spellcheck="false" autocomplete="off" placeholder="/path/to/approved/README.md">
+    <button class="primary" id="open" disabled>Open</button>
+    <button id="folder" disabled title="Show the parent directory">Folder</button>
+    <button id="refresh" disabled title="Reload the current file">↻ Reload</button>
+    <button id="tail" disabled title="Fetch the last few KB of a large log">Log tail</button>
+    <button id="log-before" disabled title="Previous log range">← Previous</button>
+    <button id="log-after" disabled title="Next log range">Next →</button>
+    <button id="diagnose" hidden disabled aria-hidden="true">Log diagnostics</button>
+    <button id="log-check" disabled title="Check for log changes manually">Check changes</button>
+  </div>
+  <p id="status" role="status" aria-live="polite">Connecting to MCP Apps host…</p>
+  <p id="perf-metrics" class="note" aria-live="off" style="padding:0 13px;margin:0 0 6px">
+    Open latency and render timing appear here
+  </p>
+  <details class="note" style="padding:0 13px 7px">
+    <summary>Connection benchmark</summary>
+    <button id="bench" disabled title="Benchmark metadata and fast-open tools">Benchmark (6 calls)</button>
+    <pre id="bench-report" style="white-space:pre-wrap;font-size:11px;max-height:160px;overflow:auto"></pre>
+  </details>
+  <main class="workspace">
+    <aside class="sidebar">
+      <div class="section-title">EXPLORER <span class="spacer"></span><button id="up" title="Go to parent folder" disabled>↑</button></div>
+      <div class="directory" id="directory-name">Open a file to view its directory</div>
+      <div class="search-bar">
+        <input id="filename-query" type="search" maxlength="128" placeholder="Search filenames in this folder">
+        <button id="filename-search" disabled>Find name</button>
+      </div>
+      <div class="note" id="filename-search-note"></div>
+      <div id="entries" aria-label="File tree"></div>
+      <div class="section-title">MARKDOWN OUTLINE</div>
+      <div id="outline" aria-label="Markdown outline"><span class="subtle">Open a Markdown file</span></div>
+    </aside>
+    <section class="doc" aria-label="Active file">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Open files"></div>
+      <div class="doc-head">
+        <h2 class="filename" id="filename">No file selected</h2>
+        <span class="file-path" id="fullpath"></span>
+        <div class="meta" id="meta">Enter the path of an authorized file.</div>
+      </div>
+      <div class="search-bar">
+        <label for="find-query" class="caption">Find in document</label>
+        <input id="find-query" type="search" maxlength="120" placeholder="Find in loaded text" autocomplete="off">
+        <button id="find-prev" disabled aria-label="Previous match">↑</button>
+        <button id="find-next" disabled aria-label="Next match">↓</button>
+        <span class="note" id="find-count">0 matches</span>
+      </div>
+      <div id="diagnosis" class="note" role="status" hidden style="padding:10px 15px;white-space:pre-wrap;border-bottom:1px solid var(--border)"></div>
+      <div class="doc-actions">
+        <div class="view-switch" id="view-switch" role="group" aria-label="View mode">
+          <button id="source-tab" aria-pressed="true">Source</button>
+          <button id="preview-tab" aria-pressed="false" disabled>Preview</button>
+        </div>
+        <button id="edit" disabled>Edit</button>
+        <label class="keymap-select" for="keymap-mode">Keymap
+          <select id="keymap-mode" aria-label="Editor keybindings">
+            <option value="standard" selected>Standard</option>
+            <option value="vim">Vim</option>
+          </select>
+        </label>
+        <button id="save" disabled hidden>Save</button>
+        <button id="cancel-edit" disabled hidden>Cancel</button>
+        <button id="diff" disabled hidden>Unsaved Diff</button>
+        <button id="history" disabled>Git History</button>
+        <span id="edit-mark" class="note"></span>
+        <span class="spacer"></span><span class="note" id="view-note">UTF-8 text</span>
+      </div>
+      <section id="history-panel" hidden class="history-panel" aria-label="Git history">
+        <div id="history-items"></div>
+        <div id="history-detail"></div>
+      </section>
+      <section id="diff-panel" hidden class="history-panel" aria-label="Unsaved changes diff">
+        <div id="diff-content"></div>
+      </section>
+      <div class="content" id="content">
+        <pre class="source" id="source-pane"><code id="source-code">Open a file to display its contents.</code></pre>
+        <article class="markdown" id="preview-pane" hidden></article>
+        <div id="editor-pane" class="editor-host" hidden role="region"
+             aria-label="CodeMirror 6 text editor"></div>
+      </div>
+      <footer class="doc-footer">
+        <button id="more" disabled hidden>Load more</button>
+        <span class="note" id="directory-hint">Read-only until editing is enabled</span>
+      </footer>
+    </section>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

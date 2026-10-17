@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-file-manager"
+version = "0.1.0"
+description = "MCP File Manager: safe, bounded file access for HPC environments"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mcp_file_viewer = ["ui/*.html"]

@@ -1,0 +1,44 @@
+# Python build products and test state
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+*.whl
+
+# JavaScript dependencies and generated frontend output
+frontend/node_modules/
+frontend/dist/
+frontend/.npm-cache/
+frontend/.local-build-tools/
+
+# Private local environment, editor files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*~
+*.swp
+*.swo
+.DS_Store
+.vscode/
+.idea/
+
+# Obsolete generated UI; only app.html is the packaged MCP Apps bundle
+src/mcp_file_viewer/ui/app_legacy.html
+
+# Historic internal implementation reports and machine-specific benchmarking
+docs/PHASE*.md
+docs/UI_V*.md
+docs/DESIGN*.md
+docs/WEB_GATEWAY_DEFERRED.md
+docs/MCP_LATENCY_BENCHMARK.md
+benchmarks/
+tools/
+tests/*.txt
+tests/*.disabled
+tests/phase0_stdio_probe.py
