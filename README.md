@@ -114,4 +114,4 @@ cp dist/index.html ../src/mcp_file_viewer/ui/app.html
 
 The Python integration tests require the MCP Python SDK in the test environment (as installed in HPC-MCP). The standalone core is usable without its UI/host adapter. Consult [Installation](docs/INSTALLATION.md) for host setup and deployment checks.
 
-**License:** not yet selected. Review and add a license before publication to GitHub. Do not assume an open-source grant until a license is specified.
+**License:** MIT. See [LICENSE](LICENSE).
