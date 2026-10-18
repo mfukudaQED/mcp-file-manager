@@ -1,6 +1,6 @@
 # MCP File Manager — User Guide
 
-This guide describes UI v15 in ChatGPT. File Manager accesses only paths allowed by its configured HPC-MCP connection. All screenshots, file names and example paths are illustrative.
+This guide describes UI v16 in ChatGPT. File Manager accesses only paths allowed by its configured HPC-MCP connection. All screenshots, file names and example paths are illustrative.
 
 ## 1. Open the File Manager
 
@@ -8,11 +8,40 @@ After an administrator-free per-user HPC-MCP installation and connection refresh
 
 > Open /path/to/authorized/work/INPUT.inp with MCP File Manager.
 
-The file list and viewer appear as an MCP App when the ChatGPT host supports it. The registered UI is **v15**. Select a file to read its text, or navigate to another directory in the file browser. Opening a file is a read operation, not an edit.
+The file list and viewer appear as an MCP App when the ChatGPT host supports it. The registered UI is **v16**. Select a file to read its text, or navigate to another directory in the file browser. Opening a file is a read operation, not an edit.
 
 If the UI does not appear, check that the plugin is connected, refresh the tools, reopen the resource, and confirm that the selected file resides within an authorized root. Ordinary MCP read tools remain usable without the UI.
 
+### Conversation panel and file references
+The MCP App UI resource asks ChatGPT to **prefer fullscreen** when it
+opens, while still supporting inline display. This is a host preference,
+not a command: the host may still render inline. If an inline app appears,
+use ChatGPT's **Open app in tab** control to move it to the right-hand tab.
+
+
+On ChatGPT hosts with **thread entrypoint** support, open **HPC File Browser** in the current conversation's side panel. It starts without a
+selected file; enter an authorized path or use the file browser.
+
+Ask ChatGPT to open a full path, such as
+`/path/to/authorized/work/README.md`. In assistant replies that deliberately
+include a file-opening action, selecting the action can send an open request
+for that specific path. A plain filename shown as ordinary text in an
+arbitrary answer is **not automatically clickable**; ChatGPT controls native
+chat-link behavior and the app's ultimate display location.
+
+The file-extension entrypoint used for ChatGPT-managed attachments is not
+enabled because it cannot automatically access a file stored on the remote
+HPC host.
+
 ## 2. Browse and read
+
+The **Explorer is hidden by default** to maximize available space for the
+viewer/editor. Click **Explorer** in the top toolbar to expand the file tree
+and Markdown outline; click **Hide Explorer** to collapse it. Choosing a
+file in the tree collapses it automatically after that file opens.
+
+The folder listing is fetched on demand when the explorer is expanded.
+You can continue opening files by absolute path while it is collapsed.
 
 - Browse the file tree and use the filename search to locate a file in the currently authorized directory.
 - Open multiple tabs and switch between them.
@@ -60,7 +89,7 @@ The preview and restore operations verify committed content and the current work
 | `file_changed` during Save | Someone or something modified the file after it was opened. Reopen and compare changes before retrying. |
 | Empty History | The file is not Git tracked or no commit exists for it. Commit a version manually. |
 | Restore rejected | The preview or current file revision changed. Reopen History and compare again. |
-| Old UI appears | Refresh ChatGPT's connected tools and reopen UI v15 after the server restarts. |
+| Old UI appears | Refresh ChatGPT's connected tools and reopen UI v16 after the server restarts. |
 | Operations feel slow | The main latency can include ChatGPT/MCP Tunnel round trips and shared filesystem I/O; local server-side processing may be much shorter. |
 
 ## 6. Current boundaries

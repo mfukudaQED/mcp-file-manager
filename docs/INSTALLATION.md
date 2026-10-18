@@ -64,10 +64,23 @@ Use whichever existing backend manages your per-user HPC-MCP Tunnel:
 Reopening ChatGPT after the host reconnects may be necessary. Refresh the connected plugin tools and open the current UI URI:
 
 ```text
-ui://mcp-file-manager/v15/app.html
+ui://mcp-file-manager/v16/app.html
 ```
 
-The compatibility aliases for older UI URIs exist for legacy clients but load the current bundled application. Prefer v15.
+The compatibility aliases for older UI URIs exist for legacy clients but load the current bundled application. Prefer v16.
+
+### Conversation-panel integration
+
+The `file_manager_panel` tool declares
+`_meta["openai/ui"]["entrypoints"] = [{"type": "thread"}]` in addition to
+the standard MCP Apps UI resource. The panel tool has no arguments. The separate `file_viewer_open(path)` tool
+continues to open specific remote files as an inline MCP App; the user may also
+navigate to a file inside the conversation panel. Refresh the MCP plugin after restarting the
+server for the new entrypoint to be discovered.
+
+This enables the **thread panel where the host supports it**, not universal
+interception of Markdown links or filename text in messages. Display and
+focus behavior are controlled by the ChatGPT host.
 
 ## Test the installation
 

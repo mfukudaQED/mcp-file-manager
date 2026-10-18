@@ -17,6 +17,33 @@ const app = new App({ name: "MCP File Manager", version: "0.1.0" });
 const el = (id: string): HTMLElement => document.getElementById(id)!;
 const input = (): HTMLInputElement => el("path") as HTMLInputElement;
 
+// The explorer starts collapsed to leave the entire panel width for text.
+// Its state is local to this MCP App view and never changes editor contents.
+function setExplorerOpen(open: boolean): void {
+  const sidebar = el("explorer-panel");
+  const toggle = el("explorer-toggle") as HTMLButtonElement;
+  sidebar.hidden = !open;
+  el("workspace").classList.toggle("explorer-open", open);
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.textContent = open ? "◂ Hide Explorer" : "☰ Explorer";
+  toggle.title = open ? "Hide File Explorer" : "Show File Explorer";
+}
+
+function toggleExplorer(): void {
+  const open = el("explorer-panel").hidden;
+  setExplorerOpen(open);
+  if (open && active) {
+    const directory = parentDirectory(active.path);
+    if (directory !== currentDirectory) {
+      void operation(async () => {
+        status("Loading folder…");
+        rootTree(await tool("file_viewer_list", { path: directory, limit: 70 }));
+        status("Folder opened");
+      });
+    }
+  }
+}
+
 interface OpenedFile {
   path: string;
   revision: string;
@@ -789,6 +816,7 @@ async function openFile(path: string, forceReload = false): Promise<void> {
   // requests a fresh revision from the remote cluster.
   if (!forceReload && !busy && tabs.has(requestedPath)) {
     activateTab(requestedPath);
+    setExplorerOpen(false);
     return;
   }
   await operation(async () => {
@@ -834,6 +862,7 @@ async function openFile(path: string, forceReload = false): Promise<void> {
     renderTabs();
     drawContent();
     markSelectedFile();
+    setExplorerOpen(false);
     const finishedAt = performance.now();
     const networkMs = responseAt - openedAt;
     const renderMs = finishedAt - responseAt;
@@ -845,7 +874,7 @@ async function openFile(path: string, forceReload = false): Promise<void> {
     prefetchNextPage(opened, continuation);
     // Sidebar refresh is best-effort; the initial file response is complete.
     const parent = parentDirectory(opened.path);
-    if (parent !== currentDirectory) {
+    if (!el("explorer-panel").hidden && parent !== currentDirectory) {
       void tool("file_viewer_list", { path: parent, limit: 70 }).then((data) => {
         if (active?.path === opened.path) rootTree(data);
       }).catch(() => {
@@ -1065,6 +1094,7 @@ async function benchmarkConnection(): Promise<void> {
 }
 function typedPath(): string { return input().value.trim(); }
 el("bench").addEventListener("click", () => void benchmarkConnection());
+el("explorer-toggle").addEventListener("click", toggleExplorer);
 el("open").addEventListener("click", () => void openFile(typedPath()));
 input().addEventListener("keydown", (event: KeyboardEvent) => {
   if (event.key === "Enter") { event.preventDefault(); void openFile(typedPath()); }
@@ -1073,7 +1103,7 @@ el("refresh").addEventListener("click", () => { if (active) void openFile(active
 el("folder").addEventListener("click", () => {
   const path = typedPath() || active?.path;
   if (!path) { status("Enter a file path", true); return; }
-  try { void openDirectory(parentDirectory(path)); }
+  try { setExplorerOpen(true); void openDirectory(parentDirectory(path)); }
   catch (error) { status(String(error), true); }
 });
 el("up").addEventListener("click", () => {

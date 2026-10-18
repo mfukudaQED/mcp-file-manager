@@ -19,7 +19,8 @@ from .policy import (
 from .viewer import FileViewer
 
 # Bump the resource URI when shipping a new UI to avoid reusing cached host iframes.
-UI_URI = "ui://mcp-file-manager/v15/app.html"
+UI_URI = "ui://mcp-file-manager/v16/app.html"
+V15_UI_URI = "ui://mcp-file-manager/v15/app.html"
 V14_UI_URI = "ui://mcp-file-manager/v14/app.html"
 V13_UI_URI = "ui://mcp-file-manager/v13/app.html"
 V12_UI_URI = "ui://mcp-file-manager/v12/app.html"
@@ -35,6 +36,14 @@ V3_UI_URI = "ui://mcp-file-manager/v3/app.html"
 PREVIOUS_UI_URI = "ui://mcp-file-manager/v2/app.html"
 LEGACY_UI_URI = "ui://mcp-file-manager/app.html"
 UI_MIME = "text/html;profile=mcp-app"
+# OpenAI's UI resource extension lets the host favor a larger presentation.
+# This is advisory: ChatGPT decides which display mode is actually used.
+UI_DISPLAY_META = {
+    "openai/ui": {
+        "preferredDisplayMode": "fullscreen",
+        "availableDisplayModes": ["inline", "fullscreen"],
+    }
+}
 
 
 def register_file_viewer(
@@ -95,7 +104,8 @@ def register_file_viewer(
         except (IsADirectoryError, NotADirectoryError, ValueError, OSError):
             return encode({"error": {"code": "invalid_request", "message": "Invalid file request."}})
 
-    @mcp.resource(UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v15)")
+    @mcp.resource(UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v16)", meta=UI_DISPLAY_META)
+    @mcp.resource(V15_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v15 URI)")
     @mcp.resource(V14_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v14 URI)")
     @mcp.resource(V13_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v13 URI)")
     @mcp.resource(V12_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v12 URI)")
@@ -114,9 +124,11 @@ def register_file_viewer(
         """Expose the self-contained, read-only MCP Apps UI resource."""
         return files("mcp_file_viewer").joinpath("ui/app.html").read_text(encoding="utf-8")
 
+    # A model-triggered tool call renders the MCP App inline by default.
+    # Keep the original path-taking tool as that invocation method.
     @mcp.tool(name="file_viewer_open", meta={"ui": {"resourceUri": UI_URI}})
     def file_viewer_open(path: str) -> str:
-        """Open authorized text metadata; UI registration is a separate phase."""
+        """Open an authorized file in the MCP File Manager widget."""
         def action() -> dict[str, Any]:
             result = viewer.info(path)
             result["kind"] = "markdown" if path.lower().endswith(".md") else "text"
@@ -124,6 +136,21 @@ def register_file_viewer(
             return result
 
         return invoke(action)
+
+    # Thread entrypoints are invoked manually from ChatGPT's content-tab UI.
+    # They require empty arguments and create a persistent panel beside chat.
+    # Calling file_viewer_open from a chat does NOT activate this tab.
+    @mcp.tool(
+        name="file_manager_panel",
+        title="HPC File Browser",
+        meta={
+            "ui": {"resourceUri": UI_URI},
+            "openai/ui": {"entrypoints": [{"type": "thread"}]},
+        },
+    )
+    def file_manager_panel() -> str:
+        """Open the HPC File Browser as a conversation content tab."""
+        return encode({"ui_available": True, "entrypoint": "thread"})
 
     @mcp.tool(name="file_manager_open_fast")
     def file_manager_open_fast(path: str) -> str:

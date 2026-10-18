@@ -41,8 +41,9 @@
     .primary:hover:not(:disabled) {filter:brightness(.95);background:var(--accent)}
     #status {margin:0;padding:6px 15px;color:var(--muted);font-size:12px;min-height:29px}
     #status.error {color:var(--error)}
-    .workspace {display:grid;grid-template-columns:minmax(200px,28%) minmax(0,1fr);height: min(73vh,760px);
+    .workspace {display:grid;grid-template-columns:minmax(0,1fr);height: min(73vh,760px);
       min-height:360px;border-top:1px solid var(--border)}
+    .workspace.explorer-open {grid-template-columns:minmax(200px,28%) minmax(0,1fr)}
     .sidebar {display:flex;min-height:0;flex-direction:column;border-right:1px solid var(--border);background:var(--side)}
     .section-title {display:flex;align-items:center;gap:8px;padding:10px 12px 7px;font-weight:650;font-size:12px}
     .section-title button {min-height:24px;padding:1px 7px;font-size:12px}
@@ -113,7 +114,7 @@
     .note {font-size:11px;color:var(--muted)}
     [hidden] {display:none!important}
     @media(max-width:690px) {
-      .workspace {grid-template-columns:minmax(0,1fr);height:auto;min-height:0}
+      .workspace,.workspace.explorer-open {grid-template-columns:minmax(0,1fr);height:auto;min-height:0}
       .sidebar {max-height:260px;border-right:0;border-bottom:1px solid var(--border)}
       #outline {max-height:110px}
       .doc {min-height:340px}
@@ -125,10 +126,11 @@
 <body>
   <header class="top">
     <span class="logo" aria-hidden="true">📂</span>
-    <div><h1>MCP File Manager</h1><div class="caption">ohtaka · Text viewer and editor · UI v15</div></div>
+    <div><h1>MCP File Manager</h1><div class="caption">ohtaka · Text viewer and editor · UI v16</div></div>
     <div class="spacer"></div><span class="connect" id="connection">○ Disconnected</span>
   </header>
   <div class="bar">
+    <button id="explorer-toggle" type="button" aria-controls="explorer-panel" aria-expanded="false" title="Show File Explorer">☰ Explorer</button>
     <label for="path" class="caption">Path</label>
     <input class="path-input" id="path" spellcheck="false" autocomplete="off" placeholder="/path/to/approved/README.md">
     <button class="primary" id="open" disabled>Open</button>
@@ -149,8 +151,8 @@
     <button id="bench" disabled title="Benchmark metadata and fast-open tools">Benchmark (6 calls)</button>
     <pre id="bench-report" style="white-space:pre-wrap;font-size:11px;max-height:160px;overflow:auto"></pre>
   </details>
-  <main class="workspace">
-    <aside class="sidebar">
+  <main class="workspace" id="workspace">
+    <aside class="sidebar" id="explorer-panel" aria-label="File Explorer" hidden>
       <div class="section-title">EXPLORER <span class="spacer"></span><button id="up" title="Go to parent folder" disabled>↑</button></div>
       <div class="directory" id="directory-name">Open a file to view its directory</div>
       <div class="search-bar">

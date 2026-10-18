@@ -44,9 +44,44 @@ Prerequisites: an operating per-user HPC-MCP server with a ChatGPT MCP Apps conn
 
 3. Restart your **existing per-user HPC-MCP service or Tunnel**, using its configured systemd-user or cron watchdog backend. In ChatGPT, refresh the connected plugin's tools/resources.
 
-4. Ask ChatGPT: **“Open `/path/to/authorized/work/README.md` with MCP File Manager.”** The current UI resource is `ui://mcp-file-manager/v15/app.html`.
+4. Ask ChatGPT: **“Open `/path/to/authorized/work/README.md` with MCP File Manager.”** The current UI resource is `ui://mcp-file-manager/v16/app.html`.
 
 For a complete walkthrough, see **[User Guide](docs/USER_GUIDE.md)**. For source installation, frontend rebuilding and troubleshooting, see **[Installation](docs/INSTALLATION.md)**.
+
+## Open in a conversation side panel
+
+MCP File Manager advertises an OpenAI **thread entrypoint** on the
+`file_manager_panel` tool. In hosts that support conversation panels, this lets
+you open the app beside the current chat, even before choosing a file.
+
+From the chat, ask ChatGPT to **open an authorized absolute path with MCP
+File Manager** (for example,
+`/path/to/authorized/work/README.md`). The existing `file_viewer_open`
+tool sends that file path to the UI, which opens the selected file.
+
+**Important platform limitation:** MCP tools cannot make arbitrary plain
+filename text (`README.md`) in every existing ChatGPT answer into a native
+click target. A reply can instead contain a specifically authored action
+link/control that sends an open-file request with the correct absolute path.
+The ChatGPT host controls whether a newly invoked app appears inline, in the
+conversation panel, or in another supported display surface. We do not
+register a generic file-extension handler: those handlers receive
+host-owned file resources, not paths to files on a remote HPC cluster.
+
+The UI resource declares `preferredDisplayMode: "fullscreen"` and keeps
+`inline` available. ChatGPT can honor the preference on initial render,
+but the host may still show the inline app. In that case, select **Open app
+in tab** on the rendered app to move it into the right-hand tab.
+
+## Explorer and viewer layout
+
+The File Explorer starts **collapsed** so the text viewer and code editor use
+the whole content width. Select **Explorer** in the toolbar to show the file
+tree and Markdown outline; choose **Hide Explorer** to collapse it again.
+Selecting a file automatically returns to the expanded viewer.
+
+The directory listing is fetched only when the explorer is visible, avoiding
+unnecessary remote HPC filesystem I/O for direct-path viewing.
 
 ## Typical editing workflow
 

@@ -26,6 +26,10 @@ async def _exercise(root: Path, fixture: Path) -> None:
             tools = (await session.list_tools()).tools
             tool = next(t for t in tools if t.name == "file_viewer_open")
             assert tool.meta["ui"]["resourceUri"] == UI_URI
+            panel = next(t for t in tools if t.name == "file_manager_panel")
+            assert panel.meta["ui"]["resourceUri"] == UI_URI
+            assert {"type": "thread"} in panel.meta["openai/ui"]["entrypoints"]
+            assert not panel.inputSchema.get("required", [])
 
             resources = (await session.list_resources()).resources
             resource = next(r for r in resources if str(r.uri) == UI_URI)
@@ -43,6 +47,9 @@ async def _exercise(root: Path, fixture: Path) -> None:
             assert 'src="http' not in html  # no external scripts
             assert "<script" in html
 
+            empty_response = await session.call_tool("file_manager_panel", {})
+            assert not empty_response.isError
+            assert "entrypoint" in empty_response.content[0].text
             response = await session.call_tool("file_viewer_open", {"path": str(fixture)})
             assert not response.isError
             assert response.content

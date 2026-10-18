@@ -44,6 +44,7 @@ def test_opt_in_only(tmp_path: Path) -> None:
     enabled = _server(tmp_path, enabled=True)
     expected = {
         "file_viewer_open",
+        "file_manager_panel",
         "file_manager_open_fast",
         "file_viewer_list",
         "file_viewer_info",
@@ -66,6 +67,8 @@ def test_read_open_outline_and_section(tmp_path: Path) -> None:
     doc = tmp_path / "sample.md"
     doc.write_text("# Heading\nHello!\n", encoding="utf-8")
     server = _server(tmp_path, enabled=True)
+    panel = _invoke(server, "file_manager_panel")
+    assert panel == {"ui_available": True, "entrypoint": "thread"}
     info = _invoke(server, "file_viewer_open", path=str(doc))
     assert info["kind"] == "markdown"
     assert info["ui_available"] is True
