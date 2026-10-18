@@ -121,6 +121,6 @@ Some integration tests import the MCP SDK; if it is missing, use the environment
 - Files with POSIX ACLs or user/system xattrs other than Lustre's virtual `lustre.lov` are rejected. Atomic replacement can change Lustre stripe settings on edited files.
 - Git History is limited to 20 commits and committed file previews to 64 KiB; it is not an automatic backup.
 - Upload/download, new-file creation, rename/move/delete and a standalone HTTP gateway are not yet supported.
-- The license is intentionally left unspecified pending the repository owner's choice; add a license before public distribution.
+- The project is distributed under the MIT License; see [LICENSE](../LICENSE).
 
-See [User Guide](USER_GUIDE.md) for UI instructions and [release verification](RELEASE_CANDIDATE_2026-10-18.md) for current test status.
+See [User Guide](USER_GUIDE.md) for UI instructions and the [release-candidate verification history](RELEASE_CANDIDATE_2026-10-18.md) for the earlier test record.

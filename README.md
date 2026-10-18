@@ -2,7 +2,7 @@
 
 MCP File Manager is a lightweight file browser and text editor for remote HPC systems, embedded in ChatGPT with **MCP Apps**. It is an optional extension to an existing per-user [HPC-MCP](https://github.com/mfukudaQED/hpc-mcp) server; it does **not** require another HTTP server, a new SSH tunnel, or administrator privileges.
 
-**Release status:** v0.1.0 candidate (2026-10-18). The core functions have passed automated and live-MCP tests, and the UI v15 workflow was user-tested in ChatGPT. See [release verification](docs/RELEASE_CANDIDATE_2026-10-18.md). No public push or GitHub release has been performed.
+**Release status:** v0.1.0 (prepared for GitHub publication, 2026-10-19). Python core tests and earlier live-MCP checks passed; the UI v15 workflow was user-tested in ChatGPT. See the [release verification notes](docs/RELEASE_CANDIDATE_2026-10-18.md) for the end-to-end checks recorded at the release-candidate stage. No public push or GitHub Release has been performed.
 
 ## Features
 
