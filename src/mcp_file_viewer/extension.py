@@ -1,4 +1,4 @@
-"""Opt-in, read-only MCP tool registration for the file viewer."""
+"""Opt-in MCP tool registration for safe reading, editing and small transfers."""
 
 from __future__ import annotations
 
@@ -19,7 +19,12 @@ from .policy import (
 from .viewer import FileViewer
 
 # Bump the resource URI when shipping a new UI to avoid reusing cached host iframes.
-UI_URI = "ui://mcp-file-manager/v16/app.html"
+UI_URI = "ui://mcp-file-manager/v21/app.html"
+V20_UI_URI = "ui://mcp-file-manager/v20/app.html"
+V19_UI_URI = "ui://mcp-file-manager/v19/app.html"
+V18_UI_URI = "ui://mcp-file-manager/v18/app.html"
+V17_UI_URI = "ui://mcp-file-manager/v17/app.html"
+V16_UI_URI = "ui://mcp-file-manager/v16/app.html"
 V15_UI_URI = "ui://mcp-file-manager/v15/app.html"
 V14_UI_URI = "ui://mcp-file-manager/v14/app.html"
 V13_UI_URI = "ui://mcp-file-manager/v13/app.html"
@@ -45,6 +50,14 @@ UI_DISPLAY_META = {
     }
 }
 
+# Clipboard permissions are requested only for v19+, older resources unchanged.
+UI_V19_META = {
+    **UI_DISPLAY_META,
+    "ui": {"permissions": {"clipboardWrite": {}}},
+}
+UI_V20_META = UI_V19_META
+UI_V21_META = UI_V20_META
+
 
 def register_file_viewer(
     mcp: Any,
@@ -53,12 +66,15 @@ def register_file_viewer(
     max_file_bytes: int = 2 * 1024 * 1024,
     enable_edit: bool = False,
     max_response_chars: int = 12_000,
+    enable_download: bool = False,
+    enable_upload: bool = False,
+    upload_roots: tuple[Path, ...] = (),
 ) -> None:
-    """Register bounded read-only viewer tools on an existing MCP server.
+    """Register bounded viewer tools and separately opted-in transfer tools.
 
     A caller must supply its already-authorized filesystem roots.
-    This module never registers write tools, commands, or a network listener.
-    MCP outputs are JSON text to support clients that lose structured results.
+    Upload requires explicit additional upload roots supplied by the caller.
+    No commands or network listener are registered. MCP output is JSON text.
     """
     limit = min(max_response_chars, 12_000)
     if limit < 128:
@@ -71,6 +87,9 @@ def register_file_viewer(
         max_headings=2000,
     )
     viewer = FileViewer(policy)
+    if enable_download or enable_upload:
+        from .transfer import BinaryTransfer
+        transfer = BinaryTransfer(policy, upload_roots if enable_upload else ())
     if enable_edit:
         from .editing import FileEditor
         from .git_history import GitHistory
@@ -104,7 +123,8 @@ def register_file_viewer(
         except (IsADirectoryError, NotADirectoryError, ValueError, OSError):
             return encode({"error": {"code": "invalid_request", "message": "Invalid file request."}})
 
-    @mcp.resource(UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v16)", meta=UI_DISPLAY_META)
+    # Preserve v16's exact HTML bytes; old resource URIs must never serve v17.
+    @mcp.resource(V16_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v16)", meta=UI_DISPLAY_META)
     @mcp.resource(V15_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v15 URI)")
     @mcp.resource(V14_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v14 URI)")
     @mcp.resource(V13_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v13 URI)")
@@ -120,9 +140,34 @@ def register_file_viewer(
     @mcp.resource(V5_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v5 URI)")
     @mcp.resource(V6_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v6 URI)")
     @mcp.resource(V7_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v7 URI)")
-    def file_manager_ui() -> str:
-        """Expose the self-contained, read-only MCP Apps UI resource."""
+    def file_manager_ui_legacy() -> str:
+        """Serve the unchanged v16 bundle on all previously published URIs."""
         return files("mcp_file_viewer").joinpath("ui/app.html").read_text(encoding="utf-8")
+
+    @mcp.resource(V17_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v17)", meta=UI_DISPLAY_META)
+    def file_manager_ui_v17() -> str:
+        """Keep the original v17 HTML and URI available without modifications."""
+        return files("mcp_file_viewer").joinpath("ui/app_v17.html").read_text(encoding="utf-8")
+
+    @mcp.resource(V18_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v18)", meta=UI_DISPLAY_META)
+    def file_manager_ui_v18() -> str:
+        """Keep the v18 resource unchanged for existing clients."""
+        return files("mcp_file_viewer").joinpath("ui/app_v18.html").read_text(encoding="utf-8")
+
+    @mcp.resource(V19_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v19)", meta=UI_V19_META)
+    def file_manager_ui_v19() -> str:
+        """Preserve the published v19 resource."""
+        return files("mcp_file_viewer").joinpath("ui/app_v19.html").read_text(encoding="utf-8")
+
+    @mcp.resource(V20_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v20)", meta=UI_V20_META)
+    def file_manager_ui_v20() -> str:
+        """Preserve the published v20 UI and its existing tooltips."""
+        return files("mcp_file_viewer").joinpath("ui/app_v20.html").read_text(encoding="utf-8")
+
+    @mcp.resource(UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v21)", meta=UI_V21_META)
+    def file_manager_ui() -> str:
+        """Serve the UI with collapsed file metadata and existing controls."""
+        return files("mcp_file_viewer").joinpath("ui/app_v21.html").read_text(encoding="utf-8")
 
     # A model-triggered tool call renders the MCP App inline by default.
     # Keep the original path-taking tool as that invocation method.
@@ -214,6 +259,54 @@ def register_file_viewer(
         return invoke(
             lambda: viewer.read_section(path, section_id, revision, offset, min(max_chars, 5000))
         )
+
+    if enable_download or enable_upload:
+        @mcp.tool(name="file_manager_transfer_capabilities", meta={"ui": {"visibility": ["app"]}})
+        def file_manager_transfer_capabilities() -> str:
+            """Advertise supported transfer operations and conservative limits."""
+            return encode({
+                "download": enable_download,
+                "upload": enable_upload,
+                "max_file_bytes": transfer.max_transfer_bytes,
+                "chunk_bytes": 4096,
+                "upload_roots": [str(p) for p in transfer.upload_roots] if enable_upload else [],
+            })
+
+    if enable_download:
+        @mcp.tool(name="file_manager_transfer_info", meta={"ui": {"visibility": ["app"]}})
+        def file_manager_transfer_info(path: str) -> str:
+            """Return a bounded, binary-safe transfer manifest for an approved file."""
+            return invoke(lambda: transfer.download_info(path))
+
+        @mcp.tool(name="file_manager_download_chunk", meta={"ui": {"visibility": ["app"]}})
+        def file_manager_download_chunk(path: str, offset: int, revision: str) -> str:
+            """Read at most 4096 binary bytes as Base64, pinned to the source SHA-256."""
+            return invoke(lambda: transfer.download_chunk(path, offset, revision))
+
+    if enable_upload:
+        @mcp.tool(name="file_manager_upload_start", meta={"ui": {"visibility": ["app"]}})
+        def file_manager_upload_start(
+            directory: str, filename: str, size_bytes: int, sha256: str,
+        ) -> str:
+            """Begin a single create-only upload in an explicit upload root."""
+            return invoke(lambda: transfer.upload_start(directory, filename, size_bytes, sha256))
+
+        @mcp.tool(name="file_manager_upload_chunk", meta={"ui": {"visibility": ["app"]}})
+        def file_manager_upload_chunk(
+            session_id: str, offset: int, content_base64: str,
+        ) -> str:
+            """Write one bounded binary chunk, rejecting gaps and conflicting replays."""
+            return invoke(lambda: transfer.upload_chunk(session_id, offset, content_base64))
+
+        @mcp.tool(name="file_manager_upload_finish", meta={"ui": {"visibility": ["app"]}})
+        def file_manager_upload_finish(session_id: str) -> str:
+            """Commit a fully verified new file without overwriting any existing entry."""
+            return invoke(lambda: transfer.upload_finish(session_id))
+
+        @mcp.tool(name="file_manager_upload_cancel", meta={"ui": {"visibility": ["app"]}})
+        def file_manager_upload_cancel(session_id: str) -> str:
+            """Cancel a pending upload and remove its staging file."""
+            return invoke(lambda: transfer.upload_cancel(session_id))
 
     if enable_edit:
         @mcp.tool(name="file_manager_edit_read")

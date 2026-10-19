@@ -11,7 +11,7 @@ from mcp.client.stdio import stdio_client
 
 from hpc_mcp.config import Settings
 from hpc_mcp.server import build_server
-from mcp_file_viewer.extension import UI_MIME, UI_URI
+from mcp_file_viewer.extension import UI_MIME, UI_URI, V20_UI_URI, V19_UI_URI, V18_UI_URI, V17_UI_URI, V16_UI_URI
 
 
 async def _exercise(root: Path, fixture: Path) -> None:
@@ -46,6 +46,35 @@ async def _exercise(root: Path, fixture: Path) -> None:
             assert "file_viewer_list" in html
             assert 'src="http' not in html  # no external scripts
             assert "<script" in html
+            assert "UI v21" in html
+            old_resource = next(r for r in resources if str(r.uri) == V16_UI_URI)
+            assert old_resource.mimeType == UI_MIME
+            old_data = await session.read_resource(V16_UI_URI)
+            assert len(old_data.contents) == 1
+            old_html = old_data.contents[0].text
+            assert "UI v16" in old_html
+            assert "UI v17" not in old_html
+            assert old_html != html
+            v17_data = await session.read_resource(V17_UI_URI)
+            v17_html = v17_data.contents[0].text
+            assert "UI v17" in v17_html
+            assert "UI v18" not in v17_html
+            assert v17_html != html
+            v18_data = await session.read_resource(V18_UI_URI)
+            v18_html = v18_data.contents[0].text
+            assert "UI v18" in v18_html
+            assert "UI v19" not in v18_html
+            assert v18_html != html
+            v19_data = await session.read_resource(V19_UI_URI)
+            v19_html = v19_data.contents[0].text
+            assert "UI v19" in v19_html
+            assert "UI v20" not in v19_html
+            assert v19_html != html
+            v20_data = await session.read_resource(V20_UI_URI)
+            v20_html = v20_data.contents[0].text
+            assert "UI v20" in v20_html
+            assert "UI v21" not in v20_html
+            assert v20_html != html
 
             empty_response = await session.call_tool("file_manager_panel", {})
             assert not empty_response.isError

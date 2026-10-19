@@ -1,5 +1,9 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 import { Vim } from "@replit/codemirror-vim";
+import { installIconTooltips } from "./icon-tooltip";
+import {
+  tabbyProfileUrl, copyableRemotePath, winScpDirectoryPath, winScpDirectoryUrl,
+} from "./copy-targets";
 import { CodeEditor, type KeymapMode } from "./code-editor";
 import { DiffView } from "./diff-view";
 import { readCompleteRevision, type CompleteRevision } from "./revision-reader";
@@ -16,7 +20,28 @@ import {
 const app = new App({ name: "MCP File Manager", version: "0.1.0" });
 const el = (id: string): HTMLElement => document.getElementById(id)!;
 const input = (): HTMLInputElement => el("path") as HTMLInputElement;
+installIconTooltips();
+function iconMarkup(name: string): string {
+  return '<svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-' +
+    name + '"></use></svg>';
+}
+function iconButton(button: HTMLButtonElement, icon: string, label: string): void {
+  button.classList.add("icon-btn");
+  button.innerHTML = iconMarkup(icon);
+  button.title = label;
+  button.setAttribute("aria-label", label);
+}
 
+// File title, full path and load-range metadata stay accessible on demand.
+function setFileDetailsOpen(open: boolean): void {
+  const details = el("file-details");
+  const toggle = el("file-details-toggle") as HTMLButtonElement;
+  details.hidden = !open;
+  toggle.setAttribute("aria-expanded", String(open));
+  const label = open ? "Hide file details" : "Show file details";
+  toggle.setAttribute("aria-label", label);
+  toggle.title = label;
+}
 // The explorer starts collapsed to leave the entire panel width for text.
 // Its state is local to this MCP App view and never changes editor contents.
 function setExplorerOpen(open: boolean): void {
@@ -25,8 +50,8 @@ function setExplorerOpen(open: boolean): void {
   sidebar.hidden = !open;
   el("workspace").classList.toggle("explorer-open", open);
   toggle.setAttribute("aria-expanded", String(open));
-  toggle.textContent = open ? "◂ Hide Explorer" : "☰ Explorer";
   toggle.title = open ? "Hide File Explorer" : "Show File Explorer";
+  toggle.setAttribute("aria-label", toggle.title);
 }
 
 function toggleExplorer(): void {
@@ -141,14 +166,14 @@ function renderPreview(
   pane.append(comparison);
   gitPreview = new DiffView(comparison, path, content, currentContent);
   const restore = document.createElement("button");
-  restore.textContent = "Restore this commit";
+  iconButton(restore, "rotate-ccw", "Restore this commit");
   // This is created inside an operation (busy=true); the button is for later clicks.
   restore.disabled = !connected;
   restore.addEventListener("click", () => {
     void restoreBackup();
   });
   const close = document.createElement("button");
-  close.textContent = "Close preview";
+  iconButton(close, "x", "Close preview");
   close.addEventListener("click", () => {
     gitPreview?.destroy();
     gitPreview = null;
@@ -201,7 +226,7 @@ async function openHistory(): Promise<void> {
       const row = document.createElement("div");
       row.className = "history-row";
       const button = document.createElement("button");
-      button.textContent = "Compare";
+      iconButton(button, "git-compare", "Compare");
       const time = document.createElement("span");
       time.textContent = entry.date + " · " + String(entry.subject || "").slice(0, 180);
       button.addEventListener("click", () => void operation(async () => {
@@ -329,7 +354,8 @@ function renderTabs(): void {
     tab.append(name);
     tab.addEventListener("click", () => { if (!busy) activateTab(path); });
     const close = document.createElement("span");
-    close.className = "close-tab"; close.textContent = "×"; close.title = "Close tab";
+    close.className = "close-tab"; close.innerHTML = iconMarkup("x"); close.title = "Close tab";
+    close.setAttribute("aria-label", "Close tab");
     close.setAttribute("role", "button"); close.setAttribute("tabindex", "0");
     const closeIt = (event: Event) => { event.stopPropagation(); if (!busy) closeTab(path); };
     close.addEventListener("click", closeIt);
@@ -455,11 +481,18 @@ function status(message: string, error = false): void {
   const target = el("status");
   target.textContent = message;
   target.classList.toggle("error", error);
+  el("status-toggle").classList.toggle("is-error", error);
+  (el("status-toggle") as HTMLButtonElement).title =
+    (el("status-panel").hidden ? "Show" : "Hide") +
+    " status and diagnostics: " + message.slice(0, 140);
 }
 
 function controls(): void {
   const enabled = connected && !busy;
   (el("bench") as HTMLButtonElement).disabled = !enabled;
+  (el("copy-path") as HTMLButtonElement).disabled = !(typedPath() || active?.path);
+  (el("copy-winscp") as HTMLButtonElement).disabled = !(typedPath() || active?.path);
+  (el("copy-tabby") as HTMLButtonElement).disabled = false;
   (el("open") as HTMLButtonElement).disabled = !enabled;
   (el("folder") as HTMLButtonElement).disabled = !enabled;
   (el("refresh") as HTMLButtonElement).disabled = !enabled || !active;
@@ -526,7 +559,10 @@ function navButton(container: HTMLElement, label: string, run: () => void): HTML
   const button = document.createElement("button");
   button.className = "nav-item";
   button.type = "button";
-  button.textContent = label;
+  const icon = label.startsWith("📁 ") ? "folder-open" :
+    label.startsWith("📄 ") ? "file-text" : "";
+  button.textContent = icon ? label.slice(3) : label;
+  if (icon) button.insertAdjacentHTML("afterbegin", iconMarkup(icon));
   button.addEventListener("click", run);
   container.append(button);
   return button;
@@ -554,7 +590,7 @@ function renderTreeItems(parent: HTMLElement, directory: string, entries: FileEn
       const twisty = document.createElement("button");
       twisty.type = "button";
       twisty.className = "twisty";
-      twisty.textContent = "▸";
+      twisty.innerHTML = iconMarkup("chevron-right");
       twisty.setAttribute("aria-label", entry.name + " expand");
       twisty.setAttribute("aria-expanded", "false");
       row.append(twisty);
@@ -569,7 +605,7 @@ function renderTreeItems(parent: HTMLElement, directory: string, entries: FileEn
         if (busy) return;
         if (!children.hidden) {
           children.hidden = true;
-          twisty.textContent = "▸";
+          twisty.innerHTML = iconMarkup("chevron-right");
           twisty.setAttribute("aria-expanded", "false");
           return;
         }
@@ -593,7 +629,7 @@ function renderTreeItems(parent: HTMLElement, directory: string, entries: FileEn
           if (!loaded) return;
         }
         children.hidden = false;
-        twisty.textContent = "▾";
+        twisty.innerHTML = iconMarkup("chevron-down");
         twisty.setAttribute("aria-expanded", "true");
         label.focus({ preventScroll: true });
       }
@@ -1093,9 +1129,77 @@ async function benchmarkConnection(): Promise<void> {
   }
 }
 function typedPath(): string { return input().value.trim(); }
+
+// The ChatGPT host may deny clipboard access even when the permission is requested.
+function flashCopiedIcon(buttonId: string): void {
+  const button = el(buttonId);
+  const use = button.querySelector("use");
+  if (!use) return;
+  const original = use.getAttribute("href") || "";
+  if (original === "#icon-check") return;
+  use.setAttribute("href", "#icon-check");
+  button.setAttribute("data-copied", "true");
+  window.setTimeout(() => {
+    if (use.getAttribute("href") === "#icon-check") use.setAttribute("href", original);
+    button.removeAttribute("data-copied");
+  }, 1500);
+}
+async function copyTextOrShowManual(value: string, label: string, buttonId: string): Promise<void> {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(value);
+    el("copy-fallback").hidden = true;
+    flashCopiedIcon(buttonId);
+    status(label + " copied to clipboard");
+  } catch {
+    const box = el("copy-fallback-text") as HTMLTextAreaElement;
+    box.value = value;
+    el("copy-fallback").hidden = false;
+    box.focus();
+    box.select();
+    status("Clipboard blocked. Press Ctrl+C to copy " + label + " manually.", true);
+  }
+}
+function copyTarget(action: () => string, label: string, buttonId: string): void {
+  try { void copyTextOrShowManual(action(), label, buttonId); }
+  catch (error) { status(error instanceof Error ? error.message : String(error), true); }
+}
+function pathForCopy(): string {
+  return copyableRemotePath(typedPath() || active?.path || "");
+}
+el("copy-path").addEventListener("click", () => {
+  copyTarget(pathForCopy, "Path", "copy-path");
+});
+el("copy-tabby").addEventListener("click", () => {
+  copyTarget(() => tabbyProfileUrl((el("tabby-profile") as HTMLInputElement).value), "Tabby URL", "copy-tabby");
+});
+el("copy-winscp").addEventListener("click", () => {
+  copyTarget(() => {
+    const path = pathForCopy();
+    const isFile = !!active && path === active.path;
+    const directory = winScpDirectoryPath(path, isFile);
+    return winScpDirectoryUrl((el("winscp-site") as HTMLInputElement).value, directory);
+  }, "WinSCP URL", "copy-winscp");
+});
+el("copy-fallback-close").addEventListener("click", () => {
+  el("copy-fallback").hidden = true;
+});
 el("bench").addEventListener("click", () => void benchmarkConnection());
+el("file-details-toggle").addEventListener("click", () => {
+  setFileDetailsOpen(el("file-details").hidden);
+});
 el("explorer-toggle").addEventListener("click", toggleExplorer);
+el("status-toggle").addEventListener("click", () => {
+  const panel = el("status-panel");
+  const expanded = panel.hidden;
+  panel.hidden = !expanded;
+  const button = el("status-toggle");
+  button.setAttribute("aria-expanded", String(expanded));
+  button.setAttribute("aria-label", expanded ? "Hide Status and diagnostics" : "Show Status and diagnostics");
+  button.title = expanded ? "Hide Status and diagnostics" : "Show Status and diagnostics";
+});
 el("open").addEventListener("click", () => void openFile(typedPath()));
+input().addEventListener("input", controls);
 input().addEventListener("keydown", (event: KeyboardEvent) => {
   if (event.key === "Enter") { event.preventDefault(); void openFile(typedPath()); }
 });

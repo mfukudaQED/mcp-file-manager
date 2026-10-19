@@ -1,97 +1,86 @@
 # MCP File Manager — User Guide
 
-This guide describes UI v16 in ChatGPT. File Manager accesses only paths allowed by its configured HPC-MCP connection. All screenshots, file names and example paths are illustrative.
+This guide describes the **UI v21** file browser/editor inside ChatGPT MCP Apps. The Python package version is independent of the UI resource version. Operations are limited to paths authorized by your existing HPC-MCP connection.
 
-## 1. Open the File Manager
+## 1. Open a file or the File Browser
 
-After an administrator-free per-user HPC-MCP installation and connection refresh, ask ChatGPT to open a particular permitted file, for example:
+With the per-user HPC-MCP connection enabled, ask ChatGPT to open a permitted absolute file path with MCP File Manager, for example:
 
 > Open /path/to/authorized/work/INPUT.inp with MCP File Manager.
 
-The file list and viewer appear as an MCP App when the ChatGPT host supports it. The registered UI is **v16**. Select a file to read its text, or navigate to another directory in the file browser. Opening a file is a read operation, not an edit.
+The `file_viewer_open(path)` tool sends the path to the MCP App. The separate `file_manager_panel()` thread entrypoint can show an empty **HPC File Browser** panel in ChatGPT hosts that support it. The host decides whether an app opens inline, in a side tab, or fullscreen. The resource requests fullscreen preference while also supporting inline rendering.
 
-If the UI does not appear, check that the plugin is connected, refresh the tools, reopen the resource, and confirm that the selected file resides within an authorized root. Ordinary MCP read tools remain usable without the UI.
+Plain filenames in arbitrary ChatGPT responses are not automatically clickable. ChatGPT-managed attachment/file-extension entrypoints do not grant access to arbitrary files on the HPC host.
 
-### Conversation panel and file references
-The MCP App UI resource asks ChatGPT to **prefer fullscreen** when it
-opens, while still supporting inline display. This is a host preference,
-not a command: the host may still render inline. If an inline app appears,
-use ChatGPT's **Open app in tab** control to move it to the right-hand tab.
+If an old UI is shown after updating the package, restart **your existing** per-user HPC-MCP service using its normal administrator-free workflow, refresh the ChatGPT connection's tools/resources, and open a new File Manager UI. The current resource is `ui://mcp-file-manager/v21/app.html`. Older v16–v20 resources remain present and unchanged for compatibility.
 
+## 2. Layout and icons
 
-On ChatGPT hosts with **thread entrypoint** support, open **HPC File Browser** in the current conversation's side panel. It starts without a
-selected file; enter an authorized path or use the file browser.
+The UI saves screen space by starting three regions collapsed:
 
-Ask ChatGPT to open a full path, such as
-`/path/to/authorized/work/README.md`. In assistant replies that deliberately
-include a file-opening action, selecting the action can send an open request
-for that specific path. A plain filename shown as ordinary text in an
-arbitrary answer is **not automatically clickable**; ChatGPT controls native
-chat-link behavior and the app's ultimate display location.
+- **File Explorer:** use the panel icon to show/hide the file tree and Markdown outline. Folder data is loaded on demand; choosing a file collapses Explorer automatically.
+- **Status / diagnostics:** use the activity icon in the top-right header to show connection status, processing/latency measurements, and the connection benchmark.
+- **File details:** use the information (ⓘ) icon in the file actions toolbar to show/hide the filename, full absolute path, file size, byte/line window and read/edit state.
 
-The file-extension entrypoint used for ChatGPT-managed attachments is not
-enabled because it cannot automatically access a file stored on the remote
-HPC host.
+Small SVG icons stand for common actions including Open (eye), Folder, Reload, log tail, search, Source/Preview, Edit (pencil), Save, Cancel, Unsaved Diff and Git History. **Move the pointer over an icon** or focus it using the keyboard to see its English tooltip, including when the action is disabled. The details displayed after expanding File details always correspond to the current file.
 
-## 2. Browse and read
+## 3. Browse, read and search
 
-The **Explorer is hidden by default** to maximize available space for the
-viewer/editor. Click **Explorer** in the top toolbar to expand the file tree
-and Markdown outline; click **Hide Explorer** to collapse it. Choosing a
-file in the tree collapses it automatically after that file opens.
+Enter an absolute path and choose Open (eye), or select files via Explorer. Source code, text files and input files use text/source rendering; Markdown can also use a rendered preview and outline. Tabs let you switch between up to five opened files. Viewer text search, bounded large-file reads, manual log-tail refresh and filename search are available without loading an entire large file into memory.
 
-The folder listing is fetched on demand when the explorer is expanded.
-You can continue opening files by absolute path while it is collapsed.
+Changing files never writes to the remote filesystem unless you explicitly invoke an enabled save/restore operation.
 
-- Browse the file tree and use the filename search to locate a file in the currently authorized directory.
-- Open multiple tabs and switch between them.
-- Source code and input files appear as text/code; Markdown documents can be read using their outline and preview.
-- Text searching is available in the viewer; the editor provides its own search/replace controls.
-- For large logs, use bounded viewing or the tail feature and manually refresh when required.
+## 4. Copy paths and desktop application URLs
 
-Large files are not loaded into the editor automatically. Bounded reads are deliberate to limit memory and shared-filesystem I/O.
+The copy controls are **text-copy actions**, not launch or file-transfer operations:
 
-## 3. Edit and save
+| Control | Text copied | Intended desktop use |
+| --- | --- | --- |
+| **Path** (file-copy icon) | Selected absolute Linux path | Paste into a terminal or another program |
+| **Tabby** (terminal icon) | `tabby://profile?profileName=...` | Use a **saved Tabby profile** matching the editable profile name (initially `sham`) |
+| **WinSCP** (folders icon) | `winscp-sftp://SITE/absolute/directory/` | Use a saved WinSCP site or host matching the editable name (initially `sham`) |
 
-Editing must be enabled in the HPC-MCP configuration. It applies only to **existing UTF-8 files no larger than 64 KiB**. If the controls are unavailable, verify write authorization, file ownership, size and metadata restrictions.
+WinSCP receives the **containing directory** when the selected path is an opened file, with a trailing slash to avoid triggering a file download. Values are encoded; credentials are never embedded. Confirm that the site/profile names match those installed locally.
 
-1. Open a file and choose **Edit**.
-2. Type your changes. The UI displays an **Unsaved changes** marker.
-3. Use **Diff** to compare the original contents with your edited buffer. This Diff is different from the Git commit-history comparison.
-4. Choose **Save** (or press `Ctrl/Cmd+S`) to send the change to HPC-MCP.
-5. Check the success notification and reopen the file if you want to verify the saved contents.
+ChatGPT or its embedded app sandbox can block custom URI launching and clipboard permissions. On Windows, a copied URI can be pasted into **Win+R** if the corresponding application is registered for that URI scheme. When the clipboard write is blocked, the UI shows a selected text field for manual **Ctrl+C** copying. It does not claim an automatic copy succeeded when the clipboard API reports failure. WinSCP URL scheme registration is performed in WinSCP itself, not by File Manager.
 
-**Cancel** discards edits after the confirmation prompt. The UI also asks before navigating away from unsaved changes. **Undo** and **Redo** affect the in-browser editor buffer; they do not undo a previously completed save on the HPC filesystem.
+## 5. Edit and save
 
-### Vim mode
+Editing must be explicitly enabled in the HPC-MCP configuration. It is restricted to **existing, owned, owner-writable UTF-8 regular files of at most 64 KiB**, subject to the filesystem metadata restrictions in the README.
 
-Select **Vim** in the keymap selector and then click **Edit**. Press `i` to enter INSERT mode and `Esc` for NORMAL mode. The editor implements common Vim keybindings and a `:w` mapping. Switch to **Standard** to use ordinary editor bindings.
+1. Open the file, then choose the **Edit** pencil icon.
+2. Change the text in CodeMirror; the UI indicates unsaved changes.
+3. Inspect **Unsaved Diff**, which compares the edited buffer to its original content.
+4. Choose **Save** (or `Ctrl/Cmd+S`) to request an atomic, SHA-256 revision-checked update.
+5. Confirm the success status or reopen the file to inspect the saved result.
 
-## 4. Git history, Compare and Restore
+**Cancel** discards pending edits after a confirmation dialog. Undo/redo only change the in-browser editing buffer, not a completed filesystem save. Select **Vim** from the Keymap selector to use Vim editing controls (e.g. `i` for INSERT and `Esc` for NORMAL).
 
-Git operations work on a file already tracked and committed in a Git repository. A non-Git file can still be edited, but its History panel explains that no Git history is available.
+## 6. Git History and restore
 
-1. Open a tracked text file and choose **History**.
-2. Select **Compare** beside a commit to inspect the committed version against the current working file.
-3. If restoration is desired, choose **Restore this commit** in the preview and confirm the warning.
-4. The file is replaced with that committed version and the viewer reloads it.
+On an already tracked and committed file:
 
-The preview and restore operations verify committed content and the current working-file revision. If another process edits the file in the meantime, the requested restore is rejected rather than silently overwriting it.
+1. Open **Git History**.
+2. Choose **Compare** for a commit and review the diff with the current working copy.
+3. Use **Restore this commit** only after reviewing the version and confirming the action.
 
-**Important:** Save does not run `git add` or `git commit`. Git can only recover versions that were previously committed. Before relying on History as a rollback mechanism, maintain commits using your normal Git workflow. Restoration does not stage, commit, reset or push anything.
+Restoration changes the working file but not the Git commit history. Preview and restore are pinned to revisions to avoid overwriting unanticipated concurrent changes. **Save/Restore do not run `git add`, `git commit` or `git push`**. Manage commits separately if Git history is to serve as a recovery mechanism.
 
-## 5. Common problems
+## 7. Common issues
 
-| Symptom | Explanation / suggested action |
+| Symptom | Explanation / action |
 | --- | --- |
-| Cannot access path | The file is outside configured roots or blocked by the access policy. Choose an approved path. |
-| Edit or Save unavailable | Editing is disabled, the file is too large, non-UTF-8, not owner-writable, hard-linked or metadata-protected. |
-| `file_changed` during Save | Someone or something modified the file after it was opened. Reopen and compare changes before retrying. |
-| Empty History | The file is not Git tracked or no commit exists for it. Commit a version manually. |
-| Restore rejected | The preview or current file revision changed. Reopen History and compare again. |
-| Old UI appears | Refresh ChatGPT's connected tools and reopen UI v16 after the server restarts. |
-| Operations feel slow | The main latency can include ChatGPT/MCP Tunnel round trips and shared filesystem I/O; local server-side processing may be much shorter. |
+| File access refused | Check the configured allowed roots and file permissions |
+| Edit/Save disabled | Editing is not authorized or file size, ownership, format or metadata restrictions apply |
+| `file_changed` | The on-disk revision changed; reopen before deciding what to save |
+| Empty History | The file is not Git-tracked or has no commits |
+| Older UI shown | Refresh the ChatGPT MCP connection after reloading the HPC-MCP service |
+| Clipboard API denied | Use the selectable manual-copy field and `Ctrl+C` |
+| Tabby/WinSCP link does not open from ChatGPT | Copy the URI and open it through the registered desktop URL handler |
+| Operations seem slow | ChatGPT/MCP Tunnel latency and shared filesystem I/O can dominate local processing time |
 
-## 6. Current boundaries
+## 8. Limits
 
-The v0.1.0 release candidate is intended for reviewing and editing small text, source and input files in HPC environments. It does **not** currently transfer PC files, edit binaries, create new files, rename/move/delete files or launch a job. It is not a substitute for version control or an off-cluster backup.
+The current UI does not offer Upload/Download buttons, binary editing, new-file creation, moving/renaming/deleting files, or job submission. An experimental transfer backend exists in the source but is **disabled by default**, and live host file transfer is not claimed as supported. The application is not a substitute for off-cluster backups. Changes to systemd, Slurm and compiler/MPI environment settings are outside File Manager's normal operation.
+
+See [Installation](INSTALLATION.md), [copy-control details](COPY_ACTIONS_V19_JA.md), [SVG/Status behavior](SVG_STATUS_V20_JA.md), and [File details behavior](FILE_DETAILS_V21_JA.md).

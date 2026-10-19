@@ -1,0 +1,4 @@
+# Versioned MCP Apps HTML bundles are generated and byte-preserved.
+# Some legacy bundles contain whitespace-only lines. Preserve their hashes
+# and do not flag those generated lines as source formatting errors.
+src/mcp_file_viewer/ui/app_v*.html whitespace=-blank-at-eol

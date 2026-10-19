@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.test-run/
 .venv/
 venv/
 build/
@@ -28,7 +29,7 @@ frontend/.local-build-tools/
 .vscode/
 .idea/
 
-# Obsolete generated UI; only app.html is the packaged MCP Apps bundle
+# Legacy generated UI not shipped; retained versioned UI bundles are packaged
 src/mcp_file_viewer/ui/app_legacy.html
 
 # Historic internal implementation reports and machine-specific benchmarking

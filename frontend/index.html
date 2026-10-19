@@ -37,6 +37,32 @@
     .bar {display:flex;align-items:center;gap:7px;padding:10px 14px;background:var(--surface);flex-wrap:wrap}
     .path-input {flex:1;min-width:180px;max-width:100%;padding:8px 10px;border:1px solid var(--border);
       border-radius:8px;background:var(--bg);color:var(--ink)}
+    .copy-setting {width:105px;min-width:75px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink)}
+    .copy-button {min-height:34px;padding:5px 8px;font-size:12px;white-space:nowrap}
+    .copy-fallback {padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+    .copy-fallback textarea {display:block;width:100%;resize:vertical;min-height:48px;padding:6px;background:var(--bg);color:var(--ink);border:1px solid var(--border)}
+    .svg-sprite {display:none}
+    .icon {display:block;flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+    .logo .icon {height:22px;width:22px}
+    .icon-btn {display:inline-flex;align-items:center;justify-content:center;width:34px;min-width:34px;min-height:34px;padding:0}
+    .icon-btn .icon {width:17px;height:17px}
+    .copy-button {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:5px 9px;font-size:12px}
+    .copy-button .icon {width:16px;height:16px}
+    .icon-btn.is-error {color:var(--error);border-color:var(--error)}
+    /* Fixed positioning escapes Explorer, tab strip, and toolbar overflow. */
+    #icon-tooltip {position:fixed;z-index:10000;pointer-events:none;max-width:min(290px,calc(100vw - 16px));
+      padding:5px 9px;border-radius:6px;background:var(--ink);color:var(--bg);
+      font:12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+      text-align:center;overflow-wrap:anywhere;box-shadow:0 3px 12px rgba(0,0,0,.14)}
+    .status-panel {padding:5px 12px 7px;border-bottom:1px solid var(--border);background:var(--surface)}
+    .status-panel #status {padding:5px 3px;min-height:0}
+    .status-panel #perf-metrics {margin:4px 3px}
+    .status-panel .connect {display:block;margin:4px 3px}
+    .doc-actions .icon-btn {width:32px;min-width:32px;min-height:30px}
+    .view-switch .icon-btn {width:34px;min-height:27px;padding:3px 7px}
+    .search-bar .icon-btn {width:30px;min-height:28px;padding:0}
+    .section-title .icon-btn {width:26px;min-width:26px;min-height:26px;padding:1px}
+    .twisty .icon {width:14px;height:14px}
     .primary {background:var(--accent);color:white;border-color:var(--accent)}
     .primary:hover:not(:disabled) {filter:brightness(.95);background:var(--accent)}
     #status {margin:0;padding:6px 15px;color:var(--muted);font-size:12px;min-height:29px}
@@ -124,40 +150,57 @@
   </style>
 </head>
 <body>
+  <svg xmlns="http://www.w3.org/2000/svg" class="svg-sprite" aria-hidden="true" focusable="false"><symbol id="icon-panel-left" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol><symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol><symbol id="icon-file-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol><symbol id="icon-square-terminal" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol><symbol id="icon-folders" viewBox="0 0 24 24"><path d="M20 20H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2 2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2ZM5 6V4a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v2"/></symbol><symbol id="icon-folder-open" viewBox="0 0 24 24"><path d="M6 14l-3 6h15l3-6a2 2 0 0 0-2-3H8a2 2 0 0 0-2 3ZM3 17V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v3"/></symbol><symbol id="icon-refresh-cw" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.7-4M4 4v4h4M4 13a8 8 0 0 0 14.7 4M20 20v-4h-4"/></symbol><symbol id="icon-file-text" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8"/></symbol><symbol id="icon-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol><symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol><symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="icon-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol><symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></symbol><symbol id="icon-file-check" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6m-11 8 2 2 4-4"/></symbol><symbol id="icon-gauge" viewBox="0 0 24 24"><path d="M12 14 16 9M5 18a9 9 0 1 1 14 0H5Z"/></symbol><symbol id="icon-code-xml" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4m8-8 4 4-4 4m-3-13-2 14"/></symbol><symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="icon-pencil" viewBox="0 0 24 24"><path d="m16 4 4 4M4 20l4.5-.9L20 7.6a2.8 2.8 0 0 0-4-4L4.5 15.1 4 20Z"/></symbol><symbol id="icon-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2ZM7 3v6h9V3M7 21v-8h10v8"/></symbol><symbol id="icon-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="icon-git-compare" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v10h9m0 0-3-3m3 3-3 3M18 15V5H9m0 0 3-3M9 5l3 3"/></symbol><symbol id="icon-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5m4-1v5l3 2"/></symbol><symbol id="icon-more-horizontal" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol><symbol id="icon-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 8L9 4l-3 8H2"/></symbol><symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol><symbol id="icon-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></symbol></svg>
   <header class="top">
-    <span class="logo" aria-hidden="true">📂</span>
-    <div><h1>MCP File Manager</h1><div class="caption">ohtaka · Text viewer and editor · UI v16</div></div>
-    <div class="spacer"></div><span class="connect" id="connection">○ Disconnected</span>
+    <span class="logo" aria-hidden="true"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-folder-open"></use></svg></span>
+    <div><h1>MCP File Manager</h1><div class="caption">HPC · Text viewer and editor · UI v21</div></div>
+    <div class="spacer"></div><button id="status-toggle" type="button" class="icon-btn" aria-label="Show Status and diagnostics" aria-controls="status-panel" aria-expanded="false" title="Show Status and diagnostics"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-activity"></use></svg></button>
   </header>
   <div class="bar">
-    <button id="explorer-toggle" type="button" aria-controls="explorer-panel" aria-expanded="false" title="Show File Explorer">☰ Explorer</button>
+    <button id="explorer-toggle" type="button" aria-controls="explorer-panel" aria-expanded="false" title="Show File Explorer" aria-label="Toggle File Explorer" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-panel-left"></use></svg></button>
     <label for="path" class="caption">Path</label>
     <input class="path-input" id="path" spellcheck="false" autocomplete="off" placeholder="/path/to/approved/README.md">
-    <button class="primary" id="open" disabled>Open</button>
-    <button id="folder" disabled title="Show the parent directory">Folder</button>
-    <button id="refresh" disabled title="Reload the current file">↻ Reload</button>
-    <button id="tail" disabled title="Fetch the last few KB of a large log">Log tail</button>
-    <button id="log-before" disabled title="Previous log range">← Previous</button>
-    <button id="log-after" disabled title="Next log range">Next →</button>
-    <button id="diagnose" hidden disabled aria-hidden="true">Log diagnostics</button>
-    <button id="log-check" disabled title="Check for log changes manually">Check changes</button>
+    <button id="copy-path" class="copy-button" type="button" title="Copy selected absolute path" aria-label="Copy current path"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-file-copy"></use></svg><span>Path</span></button>
+    <button class="icon-btn primary" id="open" disabled aria-label="Open file" title="Open file"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-eye"></use></svg></button>
+    <button id="folder" disabled title="Show the parent directory" aria-label="Show parent folder in Explorer" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-folder-open"></use></svg></button>
+    <label for="tabby-profile" class="caption">Tabby</label>
+    <input id="tabby-profile" class="copy-setting" type="text" value="sham" maxlength="128" spellcheck="false" autocomplete="off" aria-label="Saved Tabby profile name">
+    <button id="copy-tabby" class="copy-button" type="button" title="Copy tabby:// URL for the saved Tabby profile" aria-label="Copy Tabby URL"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-square-terminal"></use></svg><span>Tabby</span></button>
+    <label for="winscp-site" class="caption">WinSCP</label>
+    <input id="winscp-site" class="copy-setting" type="text" value="sham" maxlength="128" spellcheck="false" autocomplete="off" aria-label="WinSCP saved site or hostname">
+    <button id="copy-winscp" class="copy-button" type="button" title="Copy WinSCP SFTP URL for the current directory" aria-label="Copy WinSCP URL"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-folders"></use></svg><span>WinSCP</span></button>
+    <button id="refresh" disabled title="Reload the current file" aria-label="Reload current file" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-refresh-cw"></use></svg></button>
+    <button id="tail" disabled title="Fetch the last few KB of a large log" aria-label="Open log tail" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-file-text"></use></svg></button>
+    <button id="log-before" disabled title="Previous log range" aria-label="Previous log range" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-chevron-left"></use></svg></button>
+    <button id="log-after" disabled title="Next log range" aria-label="Next log range" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-chevron-right"></use></svg></button>
+    <button id="diagnose" hidden disabled aria-hidden="true" aria-label="Log diagnostics" title="Log diagnostics" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-file-check"></use></svg></button>
+    <button id="log-check" disabled title="Check for log changes manually" aria-label="Check for log changes" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-refresh-cw"></use></svg></button>
   </div>
+  <div id="status-panel" class="status-panel" hidden>
+    <span class="connect" id="connection">○ Disconnected</span>
   <p id="status" role="status" aria-live="polite">Connecting to MCP Apps host…</p>
   <p id="perf-metrics" class="note" aria-live="off" style="padding:0 13px;margin:0 0 6px">
     Open latency and render timing appear here
   </p>
   <details class="note" style="padding:0 13px 7px">
     <summary>Connection benchmark</summary>
-    <button id="bench" disabled title="Benchmark metadata and fast-open tools">Benchmark (6 calls)</button>
+    <button id="bench" disabled title="Benchmark metadata and fast-open tools" aria-label="Benchmark connection" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-gauge"></use></svg></button>
     <pre id="bench-report" style="white-space:pre-wrap;font-size:11px;max-height:160px;overflow:auto"></pre>
   </details>
+  </div>
+  <div id="copy-fallback" class="copy-fallback" hidden>
+    <label for="copy-fallback-text" class="caption">Clipboard blocked by host. Select the text below and press Ctrl+C (⌘+C on macOS):</label>
+    <textarea id="copy-fallback-text" readonly aria-label="Manual copy value"></textarea>
+    <button id="copy-fallback-close" type="button" title="Close manual copy box" aria-label="Close manual copy box" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-x"></use></svg></button>
+  </div>
+  <div id="icon-tooltip" role="tooltip" hidden></div>
   <main class="workspace" id="workspace">
     <aside class="sidebar" id="explorer-panel" aria-label="File Explorer" hidden>
-      <div class="section-title">EXPLORER <span class="spacer"></span><button id="up" title="Go to parent folder" disabled>↑</button></div>
+      <div class="section-title">EXPLORER <span class="spacer"></span><button id="up" title="Go to parent folder" disabled aria-label="Go to parent folder" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-chevron-up"></use></svg></button></div>
       <div class="directory" id="directory-name">Open a file to view its directory</div>
       <div class="search-bar">
         <input id="filename-query" type="search" maxlength="128" placeholder="Search filenames in this folder">
-        <button id="filename-search" disabled>Find name</button>
+        <button id="filename-search" disabled aria-label="Find filename" title="Find filename" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-search"></use></svg></button>
       </div>
       <div class="note" id="filename-search-note"></div>
       <div id="entries" aria-label="File tree"></div>
@@ -166,7 +209,7 @@
     </aside>
     <section class="doc" aria-label="Active file">
       <div class="tabs" id="tabs" role="tablist" aria-label="Open files"></div>
-      <div class="doc-head">
+      <div class="doc-head" id="file-details" hidden>
         <h2 class="filename" id="filename">No file selected</h2>
         <span class="file-path" id="fullpath"></span>
         <div class="meta" id="meta">Enter the path of an authorized file.</div>
@@ -174,27 +217,28 @@
       <div class="search-bar">
         <label for="find-query" class="caption">Find in document</label>
         <input id="find-query" type="search" maxlength="120" placeholder="Find in loaded text" autocomplete="off">
-        <button id="find-prev" disabled aria-label="Previous match">↑</button>
-        <button id="find-next" disabled aria-label="Next match">↓</button>
+        <button id="find-prev" disabled aria-label="Previous match" title="Previous match" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-chevron-up"></use></svg></button>
+        <button id="find-next" disabled aria-label="Next match" title="Next match" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-chevron-down"></use></svg></button>
         <span class="note" id="find-count">0 matches</span>
       </div>
       <div id="diagnosis" class="note" role="status" hidden style="padding:10px 15px;white-space:pre-wrap;border-bottom:1px solid var(--border)"></div>
       <div class="doc-actions">
+        <button id="file-details-toggle" type="button" class="icon-btn" aria-label="Show file details" title="Show file details" aria-controls="file-details" aria-expanded="false"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg></button>
         <div class="view-switch" id="view-switch" role="group" aria-label="View mode">
-          <button id="source-tab" aria-pressed="true">Source</button>
-          <button id="preview-tab" aria-pressed="false" disabled>Preview</button>
+          <button id="source-tab" aria-pressed="true" aria-label="Source view" title="Source view" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-code-xml"></use></svg></button>
+          <button id="preview-tab" aria-pressed="false" disabled aria-label="Preview view" title="Preview view" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-eye"></use></svg></button>
         </div>
-        <button id="edit" disabled>Edit</button>
+        <button id="edit" disabled aria-label="Edit file" title="Edit file" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-pencil"></use></svg></button>
         <label class="keymap-select" for="keymap-mode">Keymap
           <select id="keymap-mode" aria-label="Editor keybindings">
             <option value="standard" selected>Standard</option>
             <option value="vim">Vim</option>
           </select>
         </label>
-        <button id="save" disabled hidden>Save</button>
-        <button id="cancel-edit" disabled hidden>Cancel</button>
-        <button id="diff" disabled hidden>Unsaved Diff</button>
-        <button id="history" disabled>Git History</button>
+        <button id="save" disabled hidden aria-label="Save changes" title="Save changes" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-save"></use></svg></button>
+        <button id="cancel-edit" disabled hidden aria-label="Cancel editing" title="Cancel editing" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-x"></use></svg></button>
+        <button id="diff" disabled hidden aria-label="Unsaved Diff" title="Unsaved Diff" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-git-compare"></use></svg></button>
+        <button id="history" disabled aria-label="Git History" title="Git History" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-history"></use></svg></button>
         <span id="edit-mark" class="note"></span>
         <span class="spacer"></span><span class="note" id="view-note">UTF-8 text</span>
       </div>
@@ -212,7 +256,7 @@
              aria-label="CodeMirror 6 text editor"></div>
       </div>
       <footer class="doc-footer">
-        <button id="more" disabled hidden>Load more</button>
+        <button id="more" disabled hidden aria-label="Load more" title="Load more" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-more-horizontal"></use></svg></button>
         <span class="note" id="directory-hint">Read-only until editing is enabled</span>
       </footer>
     </section>

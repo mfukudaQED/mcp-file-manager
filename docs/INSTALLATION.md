@@ -2,32 +2,25 @@
 
 ## Overview
 
-MCP File Manager is a Python package loaded as an optional extension of an existing **HPC-MCP** process. That process is the trusted boundary for roots, authentication and tool calls. File Manager does not start a separate server or publicly accessible listener.
+MCP File Manager is an optional Python extension of an already authenticated **HPC-MCP** process. It does not open a new HTTP listener, install a new SSH tunnel, require administrator privileges or modify scheduler/compiler configuration.
 
-Requirements:
-
-- Python 3.10+ in the same environment as HPC-MCP
-- Existing per-user HPC-MCP deployment and a connected MCP Apps-capable ChatGPT host
-- Git available on the host for commit-history features
-- Node.js/npm **only if rebuilding** the packaged UI
-
-Installation must be performed under the ordinary HPC user account; administrator privileges are not needed.
+Requirements: Python 3.10+ in the same environment as HPC-MCP, an MCP Apps-capable ChatGPT connection, and Git for commit-history features. Node.js/npm are needed only when rebuilding the frontend.
 
 ## Install from source
 
-Clone or copy this package to a working directory, then install it into the HPC-MCP interpreter:
+From an authorized user-owned working directory:
 
-```sh
+~~~sh
 /path/to/hpc-mcp/.venv/bin/python -m pip install -e /path/to/mcp-file-manager
-```
+~~~
 
-Replace both example paths with your actual locations. For a non-editable package installation, omit `-e`. A prebuilt single-file UI is included in `src/mcp_file_viewer/ui/app.html` as package data.
+Adjust both paths to your environment. For a non-editable installation, omit `-e`. Prebuilt MCP Apps HTML resources are packaged as `src/mcp_file_viewer/ui/*.html`. The current UI is **v21** (`app_v21.html`); `app.html` is the immutable legacy v16 bundle.
 
 ### Enable in HPC-MCP
 
-Edit the existing private `~/.config/hpc-mcp/config.toml`. The relevant configuration keys are:
+Merge these values into your **existing private** `~/.config/hpc-mcp/config.toml` (avoid duplicate TOML tables):
 
-```toml
+~~~toml
 [filesystem]
 roots = ["/path/to/authorized/work"]
 
@@ -37,90 +30,93 @@ enable_writes = false
 [extensions.file_manager]
 enabled = true
 enable_edit = false
-```
+~~~
 
-This enables read-only browsing. To use the CodeMirror editor, explicitly opt in to the HPC-MCP write capability **and** File Manager's edit capability:
+This is the recommended **read-only** configuration. File Manager inherits the existing HPC-MCP filesystem roots; do not widen these roots merely for convenience.
 
-```toml
+To enable editing, explicitly opt in to both controls:
+
+~~~toml
 [permissions]
 enable_writes = true
 
 [extensions.file_manager]
 enabled = true
 enable_edit = true
-```
+~~~
 
-Merge the snippets into their existing TOML sections; **do not duplicate a TOML table**. The configured `[filesystem].roots` apply across HPC-MCP, so keep them as narrow as appropriate. `enable_writes=true` may also permit other HPC-MCP mutation tools under their respective policies. Review the complete HPC-MCP configuration before enabling editing.
-
-No `git` command needs to be permitted through the generic `execute_command` allowlist for the Git history extension to read/restore tracked files: the File Manager backend invokes a limited Git subprocess independently.
+These snippets represent *changes to the existing sections*, not additional duplicate sections. `permissions.enable_writes = true` may also enable other mutation tools subject to their own policies; review the entire HPC-MCP configuration first. The Git History extension invokes its own limited Git subprocess; it does not depend on adding `git` to the generic execute-command allowlist.
 
 ### Restart and reconnect
 
-Use whichever existing backend manages your per-user HPC-MCP Tunnel:
+Restart **only the existing per-user service** through your site's permitted workflow, e.g. where a systemd user manager is already configured:
 
-- **systemd user service:** restart the relevant user service with `systemctl --user restart hpc-mcp-tunnel.service` when the user manager is available.
-- **cron watchdog:** use the HPC-MCP-provided `deploy/cron_watchdog.py stop` and `start` actions from an authorized user shell; these affect the user-owned Tunnel only. Do not modify unrelated crontab entries.
+~~~sh
+systemctl --user restart hpc-mcp-tunnel.service
+systemctl --user is-active hpc-mcp-tunnel.service
+~~~
 
-Reopening ChatGPT after the host reconnects may be necessary. Refresh the connected plugin tools and open the current UI URI:
+For cron-managed deployments, use the existing HPC-MCP-provided user-level watchdog operations rather than altering unrelated crontab entries. Do not assume the MCP generic command allowlist permits `systemctl`; use an authorized user terminal if it does not.
 
-```text
-ui://mcp-file-manager/v16/app.html
-```
+Refresh or reconnect the ChatGPT plugin's tools/resources, then open a file using `file_viewer_open(path)`. The current resource is:
 
-The compatibility aliases for older UI URIs exist for legacy clients but load the current bundled application. Prefer v16.
+~~~text
+ui://mcp-file-manager/v21/app.html
+~~~
 
-### Conversation-panel integration
+Legacy v16–v20 resources are **separately registered and unchanged**. The compatibility URIs older than v16 use the original `app.html` bundle; they are not aliases to the newest version.
 
-The `file_manager_panel` tool declares
-`_meta["openai/ui"]["entrypoints"] = [{"type": "thread"}]` in addition to
-the standard MCP Apps UI resource. The panel tool has no arguments. The separate `file_viewer_open(path)` tool
-continues to open specific remote files as an inline MCP App; the user may also
-navigate to a file inside the conversation panel. Refresh the MCP plugin after restarting the
-server for the new entrypoint to be discovered.
+The independent `file_manager_panel()` thread entrypoint opens an empty file-browser pane in hosts supporting it. The main file-opening tool and panel tool share the current v21 resource. ChatGPT controls final display placement.
 
-This enables the **thread panel where the host supports it**, not universal
-interception of Markdown links or filename text in messages. Display and
-focus behavior are controlled by the ChatGPT host.
+## Verify the installation
 
-## Test the installation
+Use a disposable file **under an authorized user-owned directory**; avoid production research files for restore tests.
 
-Before opening production project files, create a small, disposable test file **within an authorized root**. Ask ChatGPT to open it with MCP File Manager. Check:
+1. Open a file and check Explorer, text/Markdown and File details (ⓘ); both Explorer and file details start collapsed.
+2. Check SVG icon tooltips with the pointer or keyboard, plus Status/diagnostics (activity icon).
+3. Check Path, Tabby and WinSCP copy controls. If clipboard permission is denied, verify the manual `Ctrl+C` fallback.
+4. If edit access is enabled, test Edit → Unsaved Diff → Save → Reload, and stale-revision rejection.
+5. On a disposable tracked Git file, test Git History → Compare → Restore, including a stale-file conflict. Test Vim mode if required.
 
-1. File listing, text and Markdown rendering
-2. Editor Edit -> Diff -> Save -> Reload
-3. Stale-revision rejection after a concurrent test change
-4. For a Git-committed test file: History -> Compare -> Restore
-5. In Vim mode: enter INSERT, edit and return to NORMAL
+The UI has **no Download/Upload controls**. The separately opt-in transfer prototype is disabled by default. Backend tests alone are not evidence that browser-host file saving or upload works.
 
-Do not use research input files for destructive restore testing.
+## Rebuild the UI (developers)
 
-## Rebuild the UI (developers only)
+Run in the project checkout, without using shared cluster `/tmp`:
 
-```sh
+~~~sh
 cd frontend
 npm ci
 npm run check
+node --test test/*.test.mjs
 npm run build
-cp dist/index.html ../src/mcp_file_viewer/ui/app.html
-```
+cp dist/index.html ../src/mcp_file_viewer/ui/app_v21.html
+~~~
 
-Restart the service and refresh the connected UI resource after changing the packaged HTML. If changing the UI protocol/asset, bump its resource version in `src/mcp_file_viewer/extension.py` to avoid a host cache retaining old content.
+The current frontend package has no `npm test` script, so invoke Node's built-in test runner directly. Rebuilding v21 is allowed as long as its resource contract is unchanged. **Never overwrite `src/mcp_file_viewer/ui/app.html` or a published older `app_vNN.html` bundle**. For a future changed UI, choose a new vNN URI and new HTML filename together in `src/mcp_file_viewer/extension.py`, and extend compatibility tests. Refresh the server after deployment.
 
-For the Python test suite, install pytest and the MCP Python SDK in the testing interpreter:
+Python integration tests require the MCP Python SDK and pytest in the test environment:
 
-```sh
-python3 -m pytest -q tests
-```
+~~~sh
+mkdir -p .test-run
+/path/to/hpc-mcp/.venv/bin/python -m pytest -q tests/ --basetemp=.test-run/pytest
+~~~
 
-Some integration tests import the MCP SDK; if it is missing, use the environment that runs HPC-MCP.
+### Release and Git checks
 
-## Security and limitations
+On a shared HPC login node, use the repository-local \`.test-run/pytest\` base for pytest
+temporary fixtures instead of the shared system \`/tmp\`. This directory is
+Git-ignored and can be cleaned after a successful test run.
 
-- Only explicit roots are available; no escalation beyond the current Linux user.
-- Small UTF-8 regular files only for editing, with 64 KiB maximum, ownership checks, stale-revision protection and atomic replacement.
-- Files with POSIX ACLs or user/system xattrs other than Lustre's virtual `lustre.lov` are rejected. Atomic replacement can change Lustre stripe settings on edited files.
-- Git History is limited to 20 commits and committed file previews to 64 KiB; it is not an automatic backup.
-- Upload/download, new-file creation, rename/move/delete and a standalone HTTP gateway are not yet supported.
-- The project is distributed under the MIT License; see [LICENSE](../LICENSE).
+Before creating a public commit:
 
-See [User Guide](USER_GUIDE.md) for UI instructions and the [release-candidate verification history](RELEASE_CANDIDATE_2026-10-18.md) for the earlier test record.
+- Review staged changes for credentials, local configuration, machine-specific internal reports and personal email addresses.
+- Run the Python suite, frontend TypeScript/Node tests, build and `git diff --cached --check`.
+- Verify all legacy `app*.html` resource hashes remain unchanged when creating a new UI version.
+- Use your approved Git identity (e.g. a GitHub noreply email), and perform commit, tag and push only as separate explicit actions.
+
+## Security and boundaries
+
+Only configured roots are accessible under the current unprivileged Linux account. Editing is limited to existing owner-writable UTF-8 files up to 64 KiB, revision-checked atomic replacement and policy checks. ACLs, hardlinks and unexpected extended attributes may block editing; replacing inodes can change Lustre stripe layout. Git History covers committed revisions, not automatic backups. Upload/download, new-file creation, rename/move/delete and an independent HTTP gateway are not supported by the v21 UI.
+
+See [User Guide](USER_GUIDE.md) and the [historical v0.1.0 release-candidate verification](RELEASE_CANDIDATE_2026-10-18.md).
