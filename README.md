@@ -2,13 +2,14 @@
 
 MCP File Manager is a lightweight file browser and text editor for remote HPC systems, embedded in ChatGPT with **MCP Apps**. It is an optional extension to an existing per-user [HPC-MCP](https://github.com/mfukudaQED/hpc-mcp) server; it does **not** require another HTTP server, a new SSH tunnel, or administrator privileges.
 
-**Version:** package `0.2.0`; current MCP Apps UI **v21**. These are independent version numbers. See the [v0.2.0 release notes](docs/RELEASE_NOTES_V0.2.0.md) for the scope and verification. Earlier v0.1.0 verification is recorded in the [release-candidate notes](docs/RELEASE_CANDIDATE_2026-10-18.md); UI v21 was subsequently confirmed working in ChatGPT.
+**Version:** package `0.3.0`; current MCP Apps UI **v23** (deploy with a service restart and connector refresh). Package and UI version numbers are independent. See the [v0.3.0 release notes](docs/RELEASE_NOTES_V0.3.0.md) for changes and verification; the [v0.2.0 release notes](docs/RELEASE_NOTES_V0.2.0.md) describe the preceding release.
 
 ## Features
 
 - Browse files and directories within an explicitly authorized filesystem root.
 - View text, source code, calculation input and Markdown documents; preview Markdown headings and rendered content.
 - Search within text files, navigate tabs and load bounded portions of large log files.
+- In **View** mode, automatically read the first **1,000 lines** (or to EOF). To read beyond that, click **Load more**; scrolling never starts another read. Each page is revision-pinned and bounded.
 - Edit existing small UTF-8 files with **CodeMirror 6**, syntax highlighting, search/replace, undo/redo and optional Vim keybindings.
 - Review unsaved changes with **Diff**, then save explicitly with SHA-256 revision checks.
 - Compare a tracked file with its Git commit history and restore a selected committed version after confirmation.
@@ -46,7 +47,7 @@ Prerequisites: an operating per-user HPC-MCP server with a ChatGPT MCP Apps conn
 
 3. Restart your **existing per-user HPC-MCP service or Tunnel**, using its configured systemd-user or cron watchdog backend. In ChatGPT, refresh the connected plugin's tools/resources.
 
-4. Ask ChatGPT: **“Open `/path/to/authorized/work/README.md` with MCP File Manager.”** The current source targets UI v21 and retains separate unchanged v16/v17/v18/v19/v20 resources. UI v21 additionally collapses the file title, full path and metadata by default; open them through the File details (info) icon. Copy actions, SVG icon tooltips and the collapsed Status/diagnostics panel are retained. Download/Upload buttons remain removed.
+4. Ask ChatGPT: **“Open `/path/to/authorized/work/README.md` with MCP File Manager.”** The current source targets UI v23 and retains separate unchanged v16/v17/v18/v19/v20/v21/v22 resources. UI v21 additionally collapses the file title, full path and metadata by default; open them through the File details (info) icon. Copy actions, SVG icon tooltips and the collapsed Status/diagnostics panel are retained. UI v23 keeps the initial 1,000-line preloading but restores button-only continuation in View mode. Download/Upload buttons remain removed.
 
 For a complete walkthrough, see **[User Guide](docs/USER_GUIDE.md)**. For source installation, frontend rebuilding and troubleshooting, see **[Installation](docs/INSTALLATION.md)**.
 
@@ -114,12 +115,12 @@ For a file already tracked by Git, open **Git History**, choose a commit's **Com
 
 The source contains an experimental bounded binary-transfer backend with
 separate opt-in download/upload registrations. Both remain disabled by
-default; **UI v21 does not expose Upload or Download**. Do not treat the
+default; **UI v23 does not expose Upload or Download**. Do not treat the
 presence of backend tests as a supported host-level transfer workflow.
 Enabling transfers needs a separate explicit configuration/security review.
 
 The v18 Tabby deep-link experiment was superseded by v19's copy-only
-controls, and v20–v21 retain those controls. See
+controls, and v20–v22 retain those controls. See
 [copy operations](docs/COPY_ACTIONS_V19_JA.md),
 [SVG controls and diagnostics](docs/SVG_STATUS_V20_JA.md), and
 [collapsible file details](docs/FILE_DETAILS_V21_JA.md).
@@ -135,7 +136,7 @@ cd frontend
 npm ci
 npm run check
 npm run build
-cp dist/index.html ../src/mcp_file_viewer/ui/app_v21.html
+cp dist/index.html ../src/mcp_file_viewer/ui/app_v23.html
 ```
 
 When releasing a **new UI version**, change the resource URI and HTML

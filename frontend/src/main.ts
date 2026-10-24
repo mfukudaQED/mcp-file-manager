@@ -7,6 +7,7 @@ import {
 import { CodeEditor, type KeymapMode } from "./code-editor";
 import { DiffView } from "./diff-view";
 import { readCompleteRevision, type CompleteRevision } from "./revision-reader";
+import { VIEW_PAGE_LINES, needsInitialFill } from "./view-paging";
 import { findMatches, MAX_TABS, type Match } from "./search";
 import {
   childPath, decodeToolResult, nextCursor, parentDirectory,
@@ -325,7 +326,7 @@ function prefetchNextPage(file: OpenedFile, cursor: Cursor | null): void {
       if (oldest) pagePrefetch.delete(oldest);
     }
     pagePrefetch.set(key, tool("file_viewer_read_text", {
-      path: file.path, start_line: cursor.line, max_lines: 70,
+      path: file.path, start_line: cursor.line, max_lines: VIEW_PAGE_LINES,
       revision: file.revision,
     }).then((result) => result.revision === file.revision &&
       typeof result.content === "string" ? result : null).catch(() => null));
@@ -414,6 +415,7 @@ function activateTab(path: string): void {
   const elapsed = performance.now() - startedAt;
   performanceDetail("cache", 0, null, elapsed, elapsed);
   status("Opened cached file · use Reload to check for changes");
+  scheduleInitialFill(active);
 }
 function closeTab(path: string): void {
   if (busy) return;
@@ -424,6 +426,7 @@ function closeTab(path: string): void {
   tabs.delete(path);
   if (current) {
     active = null; logWindow = null; continuation = null; currentText = ""; outlineCache = [];
+    initialFillGeneration++;
     selectedHeading = null;
     const fallback = [...tabs.keys()].at(-1);
     if (fallback) activateTab(fallback);
@@ -715,6 +718,7 @@ function applyLogWindow(data: JsonRecord): void {
   el("meta").textContent = String(logWindow.size_bytes) +
     " B · bytes " + String(logWindow.start_byte) + "–" +
     String(logWindow.end_byte) + " · Read only";
+  initialFillGeneration++;
   renderOutline([]);
   updateMatches();
   drawContent();
@@ -837,6 +841,10 @@ function drawContent(): void {
 function switchView(mode: ViewMode): void {
   if (editing) return;
   if (!active || (mode === "preview" && active.kind !== "markdown")) return;
+  if (mode === "preview" && currentText.length > MAX_PREVIEW_CHARS) {
+    status("Large Markdown file: use Source view for the complete loaded text.");
+    return;
+  }
   viewMode = mode;
   snapshotCurrent();drawContent();
 }
@@ -880,6 +888,7 @@ async function openFile(path: string, forceReload = false): Promise<void> {
       const oldest = tabs.keys().next().value;
       if (oldest) tabs.delete(oldest);
     }
+    initialFillGeneration++;
     logWindow = null;
     active = opened;
     continuation = nextCursor({ kind: "lines", line: 1 }, first);
@@ -907,7 +916,7 @@ async function openFile(path: string, forceReload = false): Promise<void> {
     el("perf-metrics").textContent += " · Host call " + timed.hostMs.toFixed(1) +
       " ms / decode " + timed.decodeMs.toFixed(1) + " ms";
     status("Opened file · " + Math.round(finishedAt - openedAt) + " ms (details below)");
-    prefetchNextPage(opened, continuation);
+    scheduleInitialFill(opened);
     // Sidebar refresh is best-effort; the initial file response is complete.
     const parent = parentDirectory(opened.path);
     if (!el("explorer-panel").hidden && parent !== currentDirectory) {
@@ -924,6 +933,7 @@ async function openFile(path: string, forceReload = false): Promise<void> {
 async function openSection(id: string): Promise<void> {
   if (editing) { status("Finish editing before navigating sections.", true); return; }
   if (!active) return;
+  initialFillGeneration++;
   await operation(async () => {
     const file = active!;
     status("Loading section…");
@@ -947,7 +957,7 @@ async function readMore(): Promise<void> {
   await operation(async () => {
     if (currentText.length >= MAX_DOCUMENT_CHARS) {
       continuation = null;
-      status("Display limit reached (180,000 characters); reopen the file.", true);
+      status("Display limit reached; reopen the file.", true);
       return;
     }
     const c = continuation!;
@@ -959,7 +969,7 @@ async function readMore(): Promise<void> {
       const pending = pagePrefetch.get(key);
       if (pending) pagePrefetch.delete(key);
       result = (pending ? await pending : null) ?? await tool("file_viewer_read_text", {
-        path: file.path, start_line: c.line, max_lines: 70, revision: file.revision,
+        path: file.path, start_line: c.line, max_lines: VIEW_PAGE_LINES, revision: file.revision,
       });
     } else {
       result = await tool("file_viewer_read_section", {
@@ -968,22 +978,61 @@ async function readMore(): Promise<void> {
       });
     }
     if (typeof result.content !== "string") throw new Error("Invalid file content");
+    if (c.kind === "lines" &&
+        (result.revision !== file.revision || result.start_line !== c.line)) {
+      throw new Error("Inconsistent file page; reload the file.");
+    }
     const next = nextCursor(c, result);
     if (currentText.length + result.content.length > MAX_DOCUMENT_CHARS) {
       continuation = null;
       status("Display limit reached; open another range.", true);
       return;
     }
+    const scrollTop = el("content").scrollTop;
     currentText += result.content;
     continuation = next;
+    const switchedToSource = viewMode === "preview" &&
+      currentText.length > MAX_PREVIEW_CHARS;
+    if (switchedToSource) viewMode = "source";
     snapshotCurrent();updateMatches();
     drawContent();
-    status(continuation ? "More content available" : "End of file");
+    el("content").scrollTop = scrollTop;
+    status(switchedToSource ? "Large Markdown file: switched to Source view." :
+      continuation ? "More content available" : "End of file");
   });
+}
+
+// Preload the first 1,000 lines without requiring repeated Load more clicks.
+// Schedule between requests so navigation and other UI events can be handled.
+let initialFillGeneration = 0;
+function scheduleInitialFill(file: OpenedFile): void {
+  const generation = ++initialFillGeneration;
+  const step = async (): Promise<void> => {
+    if (generation !== initialFillGeneration ||
+        active?.path !== file.path || active.revision !== file.revision ||
+        editing || logWindow || selectedHeading !== null || !connected) return;
+    const cursor = continuation;
+    if (!cursor || cursor.kind !== "lines" || !needsInitialFill(cursor.line)) {
+      prefetchNextPage(file, cursor);
+      return;
+    }
+    if (busy) {
+      window.setTimeout(() => void step(), 80);
+      return;
+    }
+    const before = cursor.line;
+    await readMore();
+    const after = continuation;
+    if (generation !== initialFillGeneration ||
+        !after || after.kind !== "lines" || after.line <= before) return;
+    window.setTimeout(() => void step(), 0);
+  };
+  window.setTimeout(() => void step(), 0);
 }
 
 async function startEditing(): Promise<void> {
   if (!active || editing || logWindow || active.sizeBytes > EDIT_LIMIT) return;
+  initialFillGeneration++;
   await operation(async () => {
     const file = active!;
     status("Loading complete file for editing…");

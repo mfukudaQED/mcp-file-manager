@@ -4,7 +4,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from mcp_file_viewer.extension import (
-    UI_URI, V20_UI_URI, V19_UI_URI, V18_UI_URI, V17_UI_URI, V16_UI_URI,
+    UI_URI, V22_UI_URI, V21_UI_URI, V20_UI_URI, V19_UI_URI, V18_UI_URI, V17_UI_URI, V16_UI_URI,
     UI_V21_META, UI_V20_META, register_file_viewer,
 )
 
@@ -12,7 +12,9 @@ from mcp_file_viewer.extension import (
 def test_v21_file_details_are_collapsed_and_toggleable() -> None:
     """The existing info text remains intact, behind an accessible icon toggle."""
     html = files("mcp_file_viewer").joinpath("ui/app_v21.html").read_text("utf-8")
-    assert UI_URI == "ui://mcp-file-manager/v21/app.html"
+    assert V21_UI_URI == "ui://mcp-file-manager/v21/app.html"
+    assert V22_UI_URI == "ui://mcp-file-manager/v22/app.html"
+    assert UI_URI == "ui://mcp-file-manager/v23/app.html"
     assert "UI v21" in html
     assert '<div class="doc-head" id="file-details" hidden>' in html
     assert 'id="file-details-toggle"' in html
@@ -35,7 +37,7 @@ def test_v21_file_details_are_collapsed_and_toggleable() -> None:
 
 
 def test_v21_registration_retains_v16_through_v20(tmp_path) -> None:
-    """Published UI resources remain separate and v21 is the default."""
+    """Published UI resources remain separate; v22 is the default."""
     class Registry:
         def __init__(self):
             self.resources = {}
@@ -56,7 +58,9 @@ def test_v21_registration_retains_v16_through_v20(tmp_path) -> None:
     assert reg.meta["file_viewer_open"]["ui"]["resourceUri"] == UI_URI
     assert reg.meta["file_manager_panel"]["ui"]["resourceUri"] == UI_URI
     for uri, name in (
-        (UI_URI, "UI v21"),
+        (UI_URI, "UI v23"),
+        (V22_UI_URI, "UI v22"),
+        (V21_UI_URI, "UI v21"),
         (V20_UI_URI, "UI v20"),
         (V19_UI_URI, "UI v19"),
         (V18_UI_URI, "UI v18"),

@@ -46,7 +46,7 @@ async def _exercise(root: Path, fixture: Path) -> None:
             assert "file_viewer_list" in html
             assert 'src="http' not in html  # no external scripts
             assert "<script" in html
-            assert "UI v21" in html
+            assert "UI v23" in html
             old_resource = next(r for r in resources if str(r.uri) == V16_UI_URI)
             assert old_resource.mimeType == UI_MIME
             old_data = await session.read_resource(V16_UI_URI)

@@ -28,8 +28,8 @@ const EXTENSIONS: Record<string, string> = {
 };
 
 export const MAX_HIGHLIGHT_CHARS = 80_000;
-export const MAX_PREVIEW_CHARS = 100_000;
-export const MAX_DOCUMENT_CHARS = 180_000;
+export const MAX_PREVIEW_CHARS = 400_000;
+export const MAX_DOCUMENT_CHARS = 2_100_000;
 
 export function languageFor(path: string): string | null {
   const name = path.split("/").pop()?.toLowerCase() ?? "";
@@ -62,7 +62,7 @@ export function renderMarkdown(article: HTMLElement, content: string): void {
   article.replaceChildren();
   if (content.length > MAX_PREVIEW_CHARS) {
     const warning = document.createElement("p");
-    warning.textContent = "Preview limit exceeded (100,000 characters). Switch to source view.";
+    warning.textContent = "Preview limit exceeded (" + MAX_PREVIEW_CHARS.toLocaleString() + " characters). Switch to source view.";
     article.append(warning);
     return;
   }

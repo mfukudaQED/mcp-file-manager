@@ -19,7 +19,9 @@ from .policy import (
 from .viewer import FileViewer
 
 # Bump the resource URI when shipping a new UI to avoid reusing cached host iframes.
-UI_URI = "ui://mcp-file-manager/v21/app.html"
+UI_URI = "ui://mcp-file-manager/v23/app.html"
+V22_UI_URI = "ui://mcp-file-manager/v22/app.html"
+V21_UI_URI = "ui://mcp-file-manager/v21/app.html"
 V20_UI_URI = "ui://mcp-file-manager/v20/app.html"
 V19_UI_URI = "ui://mcp-file-manager/v19/app.html"
 V18_UI_URI = "ui://mcp-file-manager/v18/app.html"
@@ -57,6 +59,8 @@ UI_V19_META = {
 }
 UI_V20_META = UI_V19_META
 UI_V21_META = UI_V20_META
+UI_V22_META = UI_V21_META
+UI_V23_META = UI_V22_META
 
 
 def register_file_viewer(
@@ -164,10 +168,20 @@ def register_file_viewer(
         """Preserve the published v20 UI and its existing tooltips."""
         return files("mcp_file_viewer").joinpath("ui/app_v20.html").read_text(encoding="utf-8")
 
-    @mcp.resource(UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v21)", meta=UI_V21_META)
-    def file_manager_ui() -> str:
-        """Serve the UI with collapsed file metadata and existing controls."""
+    @mcp.resource(V21_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v21)", meta=UI_V21_META)
+    def file_manager_ui_v21() -> str:
+        """Preserve the published UI v21 resource unchanged."""
         return files("mcp_file_viewer").joinpath("ui/app_v21.html").read_text(encoding="utf-8")
+
+    @mcp.resource(V22_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v22)", meta=UI_V22_META)
+    def file_manager_ui_v22() -> str:
+        """Preserve the published v22 UI resource unchanged."""
+        return files("mcp_file_viewer").joinpath("ui/app_v22.html").read_text(encoding="utf-8")
+
+    @mcp.resource(UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v23)", meta=UI_V23_META)
+    def file_manager_ui() -> str:
+        """Serve the viewer with manual continuation after the first 1,000 lines."""
+        return files("mcp_file_viewer").joinpath("ui/app_v23.html").read_text(encoding="utf-8")
 
     # A model-triggered tool call renders the MCP App inline by default.
     # Keep the original path-taking tool as that invocation method.
@@ -243,7 +257,7 @@ def register_file_viewer(
         path: str, start_line: int = 1, max_lines: int = 100, revision: str | None = None
     ) -> str:
         """Read a bounded UTF-8 line range, optionally pinned to a revision."""
-        return invoke(lambda: viewer.read_text(path, start_line, min(max_lines, 100), revision))
+        return invoke(lambda: viewer.read_text(path, start_line, min(max_lines, 1000), revision))
 
     @mcp.tool(name="file_viewer_outline")
     def file_viewer_outline(path: str) -> str:

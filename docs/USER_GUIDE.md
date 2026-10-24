@@ -1,6 +1,6 @@
 # MCP File Manager — User Guide
 
-This guide describes the **UI v21** file browser/editor inside ChatGPT MCP Apps. The Python package version is independent of the UI resource version. Operations are limited to paths authorized by your existing HPC-MCP connection.
+This guide describes the **UI v23** file browser/editor inside ChatGPT MCP Apps. The Python package version is independent of the UI resource version. Operations are limited to paths authorized by your existing HPC-MCP connection.
 
 ## 1. Open a file or the File Browser
 
@@ -12,7 +12,7 @@ The `file_viewer_open(path)` tool sends the path to the MCP App. The separate `f
 
 Plain filenames in arbitrary ChatGPT responses are not automatically clickable. ChatGPT-managed attachment/file-extension entrypoints do not grant access to arbitrary files on the HPC host.
 
-If an old UI is shown after updating the package, restart **your existing** per-user HPC-MCP service using its normal administrator-free workflow, refresh the ChatGPT connection's tools/resources, and open a new File Manager UI. The current resource is `ui://mcp-file-manager/v21/app.html`. Older v16–v20 resources remain present and unchanged for compatibility.
+If an old UI is shown after updating the package, restart **your existing** per-user HPC-MCP service using its normal administrator-free workflow, refresh the ChatGPT connection's tools/resources, and open a new File Manager UI. The current resource is `ui://mcp-file-manager/v23/app.html`. Older v16–v22 resources remain present and unchanged for compatibility.
 
 ## 2. Layout and icons
 
@@ -26,7 +26,7 @@ Small SVG icons stand for common actions including Open (eye), Folder, Reload, l
 
 ## 3. Browse, read and search
 
-Enter an absolute path and choose Open (eye), or select files via Explorer. Source code, text files and input files use text/source rendering; Markdown can also use a rendered preview and outline. Tabs let you switch between up to five opened files. Viewer text search, bounded large-file reads, manual log-tail refresh and filename search are available without loading an entire large file into memory.
+Enter an absolute path and choose Open (eye), or select files via Explorer. Source code, text files and input files use text/source rendering; Markdown can also use a rendered preview and outline. Tabs let you switch between up to five opened files. View mode automatically loads the first **1,000 lines** (or to end of file) through bounded requests. If more lines remain, click **Load more** for each subsequent portion; scrolling does **not** initiate any read. Viewer text search, bounded large-file reads, manual log-tail refresh and filename search are available without loading an entire large file into memory.
 
 Changing files never writes to the remote filesystem unless you explicitly invoke an enabled save/restore operation.
 

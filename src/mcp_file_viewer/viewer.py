@@ -40,8 +40,8 @@ class FileViewer:
                    max_bytes: int = 4096) -> dict:
         return self.access.log_window(path, direction=direction, offset=offset, max_bytes=max_bytes)
 
-    def open_fast(self, path: str, *, max_initial_lines: int = 70,
-                  max_content_chars: int = 4000, max_preview_headings: int = 30) -> dict:
+    def open_fast(self, path: str, *, max_initial_lines: int = 1000,
+                  max_content_chars: int = 10000, max_preview_headings: int = 30) -> dict:
         """Return first content, metadata and a bounded Markdown outline in one read.
 
         This intentionally avoids directory listing and multiple MCP round trips.
@@ -125,8 +125,20 @@ class FileViewer:
                 break
             if used+len(line)>p.max_response_chars:break
             selected.append(line);used+=len(line)
-        return dict(path=snap.path,revision=snap.revision,total_lines=snap.total_lines,start_line=start_line,
-                    content="".join(selected),next_line=start_line+len(selected),has_more=start_line+len(selected)<=snap.total_lines)
+        import json
+        result = dict(path=snap.path, revision=snap.revision, total_lines=snap.total_lines,
+                      start_line=start_line, content="".join(selected),
+                      next_line=start_line+len(selected),
+                      has_more=start_line+len(selected)<=snap.total_lines)
+        # Account for JSON quoting and metadata, not only plain-text length.
+        while len(json.dumps(result, ensure_ascii=False, separators=(",", ":"))) > p.max_response_chars:
+            if not selected:
+                raise InvalidRange("One line exceeds response limit")
+            selected.pop()
+            result["content"] = "".join(selected)
+            result["next_line"] = start_line + len(selected)
+            result["has_more"] = result["next_line"] <= snap.total_lines
+        return result
 
     def outline(self, path: str) -> dict:
         """Extract a structured hierarchy of Markdown headings."""

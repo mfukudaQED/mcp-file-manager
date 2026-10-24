@@ -4,7 +4,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from mcp_file_viewer.extension import (
-    UI_URI, V20_UI_URI, V19_UI_URI, V18_UI_URI, V17_UI_URI, V16_UI_URI,
+    UI_URI, V22_UI_URI, V21_UI_URI, V20_UI_URI, V19_UI_URI, V18_UI_URI, V17_UI_URI, V16_UI_URI,
     UI_V21_META, UI_V20_META, UI_V19_META, register_file_viewer,
 )
 
@@ -57,7 +57,9 @@ def test_v20_legacy_resources_are_distinct(tmp_path) -> None:
     assert stub.tool_metadata["file_viewer_open"]["ui"]["resourceUri"] == UI_URI
     assert stub.tool_metadata["file_manager_panel"]["ui"]["resourceUri"] == UI_URI
     for uri, name in (
-        (UI_URI, "UI v21"),
+        (UI_URI, "UI v23"),
+        (V22_UI_URI, "UI v22"),
+        (V21_UI_URI, "UI v21"),
         (V20_UI_URI, "UI v20"),
         (V19_UI_URI, "UI v19"),
         (V18_UI_URI, "UI v18"),

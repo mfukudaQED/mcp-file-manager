@@ -14,7 +14,7 @@ From an authorized user-owned working directory:
 /path/to/hpc-mcp/.venv/bin/python -m pip install -e /path/to/mcp-file-manager
 ~~~
 
-Adjust both paths to your environment. For a non-editable installation, omit `-e`. Prebuilt MCP Apps HTML resources are packaged as `src/mcp_file_viewer/ui/*.html`. The current UI is **v21** (`app_v21.html`); `app.html` is the immutable legacy v16 bundle.
+Adjust both paths to your environment. For a non-editable installation, omit `-e`. Prebuilt MCP Apps HTML resources are packaged as `src/mcp_file_viewer/ui/*.html`. The current UI is **v23** (`app_v23.html`); `app.html` is the immutable legacy v16 bundle.
 
 ### Enable in HPC-MCP
 
@@ -61,12 +61,12 @@ For cron-managed deployments, use the existing HPC-MCP-provided user-level watch
 Refresh or reconnect the ChatGPT plugin's tools/resources, then open a file using `file_viewer_open(path)`. The current resource is:
 
 ~~~text
-ui://mcp-file-manager/v21/app.html
+ui://mcp-file-manager/v23/app.html
 ~~~
 
-Legacy v16–v20 resources are **separately registered and unchanged**. The compatibility URIs older than v16 use the original `app.html` bundle; they are not aliases to the newest version.
+Legacy v16–v22 resources are **separately registered and unchanged**. The compatibility URIs older than v16 use the original `app.html` bundle; they are not aliases to the newest version.
 
-The independent `file_manager_panel()` thread entrypoint opens an empty file-browser pane in hosts supporting it. The main file-opening tool and panel tool share the current v21 resource. ChatGPT controls final display placement.
+The independent `file_manager_panel()` thread entrypoint opens an empty file-browser pane in hosts supporting it. The main file-opening tool and panel tool share the current v23 resource. ChatGPT controls final display placement.
 
 ## Verify the installation
 
@@ -76,7 +76,8 @@ Use a disposable file **under an authorized user-owned directory**; avoid produc
 2. Check SVG icon tooltips with the pointer or keyboard, plus Status/diagnostics (activity icon).
 3. Check Path, Tabby and WinSCP copy controls. If clipboard permission is denied, verify the manual `Ctrl+C` fallback.
 4. If edit access is enabled, test Edit → Unsaved Diff → Save → Reload, and stale-revision rejection.
-5. On a disposable tracked Git file, test Git History → Compare → Restore, including a stale-file conflict. Test Vim mode if required.
+5. Open a file longer than 1,000 lines. Check that the initial 1,000 lines load without clicking. Scrolling must not fetch additional pages; click **Load more** to continue, retaining line and revision consistency.
+6. On a disposable tracked Git file, test Git History → Compare → Restore, including a stale-file conflict. Test Vim mode if required.
 
 The UI has **no Download/Upload controls**. The separately opt-in transfer prototype is disabled by default. Backend tests alone are not evidence that browser-host file saving or upload works.
 
@@ -90,10 +91,10 @@ npm ci
 npm run check
 node --test test/*.test.mjs
 npm run build
-cp dist/index.html ../src/mcp_file_viewer/ui/app_v21.html
+cp dist/index.html ../src/mcp_file_viewer/ui/app_v23.html
 ~~~
 
-The current frontend package has no `npm test` script, so invoke Node's built-in test runner directly. Rebuilding v21 is allowed as long as its resource contract is unchanged. **Never overwrite `src/mcp_file_viewer/ui/app.html` or a published older `app_vNN.html` bundle**. For a future changed UI, choose a new vNN URI and new HTML filename together in `src/mcp_file_viewer/extension.py`, and extend compatibility tests. Refresh the server after deployment.
+The current frontend package has no `npm test` script, so invoke Node's built-in test runner directly. Rebuilding v23 is allowed as long as its resource contract is unchanged. **Never overwrite `src/mcp_file_viewer/ui/app.html` or a published older `app_vNN.html` bundle**. For a future changed UI, choose a new vNN URI and new HTML filename together in `src/mcp_file_viewer/extension.py`, and extend compatibility tests. Refresh the server after deployment.
 
 Python integration tests require the MCP Python SDK and pytest in the test environment:
 
