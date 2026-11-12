@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import markedKatex from "marked-katex-extension";
 import DOMPurify from "dompurify";
 import hljs from "highlight.js/lib/core";
 import bash from "highlight.js/lib/languages/bash";
@@ -26,6 +27,9 @@ const EXTENSIONS: Record<string, string> = {
   xml:"xml", html:"xml", xhtml:"xml", svg:"xml",
   diff:"diff", patch:"diff",
 };
+
+// Render TeX without fetching fonts or CDN scripts. Native MathML works on iOS WebKit.
+marked.use(markedKatex({ output: "mathml", throwOnError: false, nonStandard: true, trust: false }));
 
 export const MAX_HIGHLIGHT_CHARS = 80_000;
 export const MAX_PREVIEW_CHARS = 400_000;
@@ -69,9 +73,9 @@ export function renderMarkdown(article: HTMLElement, content: string): void {
 
   const rendered = marked.parse(content, { async: false, gfm: true, breaks: false });
   const sanitized = DOMPurify.sanitize(rendered, {
-    USE_PROFILES: { html: true },
+    USE_PROFILES: { html: true, mathMl: true },
     FORBID_TAGS: [
-      "script", "style", "iframe", "img", "svg", "math",
+      "script", "style", "iframe", "img", "svg",
       "object", "embed", "link", "meta", "base",
       "form", "input", "button", "textarea", "select",
       "video", "audio", "source", "picture",

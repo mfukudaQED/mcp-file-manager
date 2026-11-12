@@ -33,7 +33,7 @@ def test_opt_in_registration(tmp_path: Path):
     """Keep writing disabled by default and register the editing tools when enabled."""
     first = MCPStub()
     register_file_viewer(first, roots=(tmp_path,))
-    assert UI_URI == "ui://mcp-file-manager/v23/app.html"
+    assert UI_URI == "ui://mcp-file-manager/v29/app.html"
     assert V22_UI_URI == "ui://mcp-file-manager/v22/app.html"
     assert V21_UI_URI == "ui://mcp-file-manager/v21/app.html"
     assert V20_UI_URI == "ui://mcp-file-manager/v20/app.html"
@@ -51,14 +51,14 @@ def test_opt_in_registration(tmp_path: Path):
     assert V17_UI_URI in first.resources
     assert "UI v17" in first.resources[V17_UI_URI]()
     assert "UI v18" in first.resources[V18_UI_URI]()
-    assert "UI v23" in first.resources[UI_URI]()
+    assert "UI v29" in first.resources[UI_URI]()
     assert "UI v22" in first.resources[V22_UI_URI]()
     assert "UI v21" in first.resources[V21_UI_URI]()
     assert "UI v20" in first.resources[V20_UI_URI]()
     assert "UI v19" in first.resources[V19_UI_URI]()
     assert first.resources[UI_URI]() != first.resources[V16_UI_URI]()
     assert "UI v16" in first.resources[V16_UI_URI]()
-    assert "UI v23" in first.resources[UI_URI]()
+    assert "UI v29" in first.resources[UI_URI]()
     assert "UI v22" in first.resources[V22_UI_URI]()
     assert "UI v21" in first.resources[V21_UI_URI]()
     assert "UI v20" in first.resources[V20_UI_URI]()
@@ -111,11 +111,11 @@ def test_thread_entrypoint_is_separate_from_inline_file_open(tmp_path: Path):
 
 def test_fullscreen_display_preference(tmp_path: Path):
     """ChatGPT may start the UI in fullscreen; inline remains supported."""
-    from mcp_file_viewer.extension import UI_DISPLAY_META, UI_V19_META, UI_V20_META, UI_V21_META, UI_V22_META, UI_V23_META
+    from mcp_file_viewer.extension import UI_DISPLAY_META, UI_V19_META, UI_V20_META, UI_V21_META, UI_V22_META, UI_V26_META
 
     stub = MCPStub()
     register_file_viewer(stub, roots=(tmp_path,))
-    assert stub.resource_meta[UI_URI] == UI_V23_META
+    assert stub.resource_meta[UI_URI]["openai/ui"]["preferredDisplayMode"] == "inline"
     assert stub.resource_meta[V20_UI_URI] == UI_V20_META
     assert stub.resource_meta[V19_UI_URI] == UI_V19_META
     assert stub.resource_meta[V18_UI_URI] == UI_DISPLAY_META

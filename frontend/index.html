@@ -104,6 +104,25 @@
     .view-switch button {min-height:27px;border:0;padding:3px 12px;font-size:12px}
     .view-switch button[aria-pressed="true"] {background:var(--selected);color:var(--accent);font-weight:650}
     .content {flex:1;min-height:0;overflow:auto;background:var(--bg);padding:17px}
+    .image-pane {display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0}
+    .image-pane img {display:block;max-width:100%;max-height:70vh;object-fit:contain;
+      cursor:zoom-in;background:repeating-conic-gradient(#e7e9ed 0% 25%,#f7f8fa 0% 50%) 50%/16px 16px}
+    .image-pane img.image-natural {max-width:none;max-height:none;cursor:zoom-out}
+    .image-pane .note {overflow-wrap:anywhere}
+    .image-pane[hidden],.pdf-pane[hidden] {display:none!important}
+    .pdf-pane {display:flex;flex-direction:column;gap:12px;min-width:0;align-items:stretch}
+    .pdf-toolbar {display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+    .pdf-toolbar button {min-height:34px}
+    .pdf-toolbar input {max-width:75px;border:1px solid var(--border);border-radius:7px;
+      padding:6px;background:var(--bg);color:var(--ink);text-align:center}
+    .pdf-canvas {width:100%;overflow:auto;background:var(--surface);border-radius:8px;
+      padding:8px;text-align:center;min-height:80px}
+    .pdf-page-canvas {display:block;margin:0 auto;max-width:none;background:#fff;
+      box-shadow:0 2px 9px #0002}
+    .pdf-page-text {white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;
+      font:12px/1.6 ui-monospace,monospace;max-height:220px;overflow:auto;
+      background:var(--surface);border:1px solid var(--border);border-radius:8px}
+    .pdf-page-text[hidden] {display:none!important}
     pre.source {white-space:pre;overflow:auto;tab-size:4;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
       padding:0;margin:0;min-height:200px;color:var(--ink)}
     pre.source code {font:inherit}
@@ -136,8 +155,32 @@
     .markdown th,.markdown td {border:1px solid var(--border);padding:6px 10px}
     .markdown a {color:var(--accent)}
     .markdown hr {border:0;border-top:1px solid var(--border)}
+    .markdown .katex-display {display:block;max-width:100%;overflow-x:auto;overflow-y:hidden;
+      margin:1em 0;padding:4px 0;text-align:center;-webkit-overflow-scrolling:touch}
+    .markdown .katex {max-width:100%}
     .doc-footer {display:flex;align-items:center;gap:10px;padding:10px 15px;border-top:1px solid var(--border)}
     .note {font-size:11px;color:var(--muted)}
+    /* v29: only a compact, keyboard-accessible card is rendered in inline mode. */
+    .launch-card {display:flex;align-items:center;gap:12px;max-width:100%;
+      padding:12px 14px;border:1px solid var(--border);border-radius:12px;
+      background:var(--surface);color:var(--ink);min-height:72px}
+    .launch-file-icon {display:flex;align-items:center;justify-content:center;
+      border-radius:8px;background:var(--selected);color:var(--accent);
+      font-size:22px;width:40px;min-width:40px;height:40px}
+    .launch-labels {flex:1;min-width:0;overflow:hidden}
+    .launch-name {font-weight:650;font-size:14px;line-height:1.3;overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap}
+    .launch-meta {font-size:12px;color:var(--muted);white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis}
+    .launch-button {min-width:68px;min-height:44px;white-space:nowrap;
+      background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+    .launch-button:hover:not(:disabled) {filter:brightness(1.15);background:var(--accent)}
+    .launch-error {font-size:12px;color:var(--error);padding:6px 10px;
+      overflow-wrap:anywhere}
+    .viewer-shell[hidden],.launch-card[hidden] {display:none!important}
+    @media(max-width:390px) {.launch-card {gap:8px;padding:10px}
+      .launch-file-icon {width:32px;min-width:32px;height:34px}
+      .launch-button {min-width:64px}}
     [hidden] {display:none!important}
     @media(max-width:690px) {
       .workspace,.workspace.explorer-open {grid-template-columns:minmax(0,1fr);height:auto;min-height:0}
@@ -151,9 +194,19 @@
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" class="svg-sprite" aria-hidden="true" focusable="false"><symbol id="icon-panel-left" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol><symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol><symbol id="icon-file-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol><symbol id="icon-square-terminal" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol><symbol id="icon-folders" viewBox="0 0 24 24"><path d="M20 20H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2 2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2ZM5 6V4a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v2"/></symbol><symbol id="icon-folder-open" viewBox="0 0 24 24"><path d="M6 14l-3 6h15l3-6a2 2 0 0 0-2-3H8a2 2 0 0 0-2 3ZM3 17V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v3"/></symbol><symbol id="icon-refresh-cw" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.7-4M4 4v4h4M4 13a8 8 0 0 0 14.7 4M20 20v-4h-4"/></symbol><symbol id="icon-file-text" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8"/></symbol><symbol id="icon-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol><symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol><symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="icon-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol><symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></symbol><symbol id="icon-file-check" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6m-11 8 2 2 4-4"/></symbol><symbol id="icon-gauge" viewBox="0 0 24 24"><path d="M12 14 16 9M5 18a9 9 0 1 1 14 0H5Z"/></symbol><symbol id="icon-code-xml" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4m8-8 4 4-4 4m-3-13-2 14"/></symbol><symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="icon-pencil" viewBox="0 0 24 24"><path d="m16 4 4 4M4 20l4.5-.9L20 7.6a2.8 2.8 0 0 0-4-4L4.5 15.1 4 20Z"/></symbol><symbol id="icon-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2ZM7 3v6h9V3M7 21v-8h10v8"/></symbol><symbol id="icon-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="icon-git-compare" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v10h9m0 0-3-3m3 3-3 3M18 15V5H9m0 0 3-3M9 5l3 3"/></symbol><symbol id="icon-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5m4-1v5l3 2"/></symbol><symbol id="icon-more-horizontal" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol><symbol id="icon-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 8L9 4l-3 8H2"/></symbol><symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol><symbol id="icon-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></symbol></svg>
+  <section id="launch-card" class="launch-card" role="group" aria-label="MCP File Manager を開く">
+    <span class="launch-file-icon" aria-hidden="true">📄</span>
+    <div class="launch-labels">
+      <div id="launch-filename" class="launch-name" title="HPC File Browser">HPC File Browser</div>
+      <div id="launch-metadata" class="launch-meta" data-host="__MCPFM_V29_HOST__">HPC · ファイルブラウザー</div>
+    </div>
+    <button type="button" id="launch-open" class="launch-button" aria-label="File Manager を全画面で開く" aria-controls="viewer-shell" aria-expanded="false" disabled>開く</button>
+  </section>
+  <div id="launch-error" class="launch-error" role="status" aria-live="polite" hidden></div>
+  <div id="viewer-shell" class="viewer-shell" hidden>
   <header class="top">
     <span class="logo" aria-hidden="true"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-folder-open"></use></svg></span>
-    <div><h1>MCP File Manager</h1><div class="caption">HPC · Text viewer and editor · UI v23</div></div>
+    <div><h1>MCP File Manager</h1><div class="caption">HPC · Text viewer and editor · UI v29</div></div>
     <div class="spacer"></div><button id="status-toggle" type="button" class="icon-btn" aria-label="Show Status and diagnostics" aria-controls="status-panel" aria-expanded="false" title="Show Status and diagnostics"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-activity"></use></svg></button>
   </header>
   <div class="bar">
@@ -164,10 +217,10 @@
     <button class="icon-btn primary" id="open" disabled aria-label="Open file" title="Open file"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-eye"></use></svg></button>
     <button id="folder" disabled title="Show the parent directory" aria-label="Show parent folder in Explorer" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-folder-open"></use></svg></button>
     <label for="tabby-profile" class="caption">Tabby</label>
-    <input id="tabby-profile" class="copy-setting" type="text" value="sham" maxlength="128" spellcheck="false" autocomplete="off" aria-label="Saved Tabby profile name">
+    <input id="tabby-profile" class="copy-setting" type="text" value="__MCPFM_V26_TABBY_PROFILE__" maxlength="128" spellcheck="false" autocomplete="off" aria-label="Saved Tabby profile name">
     <button id="copy-tabby" class="copy-button" type="button" title="Copy tabby:// URL for the saved Tabby profile" aria-label="Copy Tabby URL"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-square-terminal"></use></svg><span>Tabby</span></button>
     <label for="winscp-site" class="caption">WinSCP</label>
-    <input id="winscp-site" class="copy-setting" type="text" value="sham" maxlength="128" spellcheck="false" autocomplete="off" aria-label="WinSCP saved site or hostname">
+    <input id="winscp-site" class="copy-setting" type="text" value="__MCPFM_V26_WINSCP_SITE__" maxlength="128" spellcheck="false" autocomplete="off" aria-label="WinSCP saved site or hostname">
     <button id="copy-winscp" class="copy-button" type="button" title="Copy WinSCP SFTP URL for the current directory" aria-label="Copy WinSCP URL"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-folders"></use></svg><span>WinSCP</span></button>
     <button id="refresh" disabled title="Reload the current file" aria-label="Reload current file" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-refresh-cw"></use></svg></button>
     <button id="tail" disabled title="Fetch the last few KB of a large log" aria-label="Open log tail" class="icon-btn"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-file-text"></use></svg></button>
@@ -252,6 +305,27 @@
       <div class="content" id="content">
         <pre class="source" id="source-pane"><code id="source-code">Open a file to display its contents.</code></pre>
         <article class="markdown" id="preview-pane" hidden></article>
+        <div class="image-pane" id="image-pane" hidden aria-label="Read-only image preview">
+          <img id="image-preview" alt="Image preview" decoding="async">
+          <span class="note" id="image-preview-note"></span>
+        </div>
+        <div class="pdf-pane" id="pdf-pane" hidden aria-label="Read-only PDF preview">
+          <div class="pdf-toolbar" role="group" aria-label="PDF page and zoom controls">
+            <button type="button" id="pdf-prev" aria-label="Previous PDF page" disabled>Previous</button>
+            <input id="pdf-page-number" type="number" min="1" step="1" value="1" aria-label="PDF page number" disabled>
+            <span id="pdf-page-total" class="note">/ 0</span>
+            <button type="button" id="pdf-go" aria-label="Go to PDF page" disabled>Go</button>
+            <button type="button" id="pdf-next" aria-label="Next PDF page" disabled>Next</button>
+            <span class="spacer"></span>
+            <button type="button" id="pdf-zoom-out" aria-label="Zoom out PDF" disabled>−</button>
+            <span id="pdf-zoom-label" class="note">Fit</span>
+            <button type="button" id="pdf-zoom-in" aria-label="Zoom in PDF" disabled>+</button>
+            <button type="button" id="pdf-fit" aria-label="Fit PDF page to width" aria-pressed="true" disabled>Fit</button>
+            <button type="button" id="pdf-text-toggle" aria-label="Show or hide PDF page text" disabled>Text</button>
+          </div>
+          <div id="pdf-canvas" class="pdf-canvas" aria-label="Rendered PDF page"></div>
+          <pre id="pdf-text-content" class="pdf-page-text" hidden aria-label="Extracted PDF page text"></pre>
+        </div>
         <div id="editor-pane" class="editor-host" hidden role="region"
              aria-label="CodeMirror 6 text editor"></div>
       </div>
@@ -261,6 +335,7 @@
       </footer>
     </section>
   </main>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

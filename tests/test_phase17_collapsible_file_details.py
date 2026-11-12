@@ -14,7 +14,7 @@ def test_v21_file_details_are_collapsed_and_toggleable() -> None:
     html = files("mcp_file_viewer").joinpath("ui/app_v21.html").read_text("utf-8")
     assert V21_UI_URI == "ui://mcp-file-manager/v21/app.html"
     assert V22_UI_URI == "ui://mcp-file-manager/v22/app.html"
-    assert UI_URI == "ui://mcp-file-manager/v23/app.html"
+    assert UI_URI == "ui://mcp-file-manager/v29/app.html"
     assert "UI v21" in html
     assert '<div class="doc-head" id="file-details" hidden>' in html
     assert 'id="file-details-toggle"' in html
@@ -58,7 +58,7 @@ def test_v21_registration_retains_v16_through_v20(tmp_path) -> None:
     assert reg.meta["file_viewer_open"]["ui"]["resourceUri"] == UI_URI
     assert reg.meta["file_manager_panel"]["ui"]["resourceUri"] == UI_URI
     for uri, name in (
-        (UI_URI, "UI v23"),
+        (UI_URI, "UI v29"),
         (V22_UI_URI, "UI v22"),
         (V21_UI_URI, "UI v21"),
         (V20_UI_URI, "UI v20"),

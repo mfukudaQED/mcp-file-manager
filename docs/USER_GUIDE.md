@@ -1,6 +1,6 @@
 # MCP File Manager — User Guide
 
-This guide describes the **UI v23** file browser/editor inside ChatGPT MCP Apps. The Python package version is independent of the UI resource version. Operations are limited to paths authorized by your existing HPC-MCP connection.
+This guide describes the **UI v29** file browser/editor inside ChatGPT MCP Apps. The Python package version is independent of the UI resource version. Operations are limited to paths authorized by your existing HPC-MCP connection.
 
 ## 1. Open a file or the File Browser
 
@@ -8,11 +8,23 @@ With the per-user HPC-MCP connection enabled, ask ChatGPT to open a permitted ab
 
 > Open /path/to/authorized/work/INPUT.inp with MCP File Manager.
 
-The `file_viewer_open(path)` tool sends the path to the MCP App. The separate `file_manager_panel()` thread entrypoint can show an empty **HPC File Browser** panel in ChatGPT hosts that support it. The host decides whether an app opens inline, in a side tab, or fullscreen. The resource requests fullscreen preference while also supporting inline rendering.
+The `file_viewer_open(path)` tool sends the path to the MCP App. The separate `file_manager_panel()` thread entrypoint can show an empty **HPC File Browser** panel in ChatGPT hosts that support it. The host decides whether an app opens inline, in a side tab, or fullscreen. UI v29 prefers a compact inline card; clicking Open requests fullscreen inside ChatGPT. The host can decline this request.
 
 Plain filenames in arbitrary ChatGPT responses are not automatically clickable. ChatGPT-managed attachment/file-extension entrypoints do not grant access to arbitrary files on the HPC host.
 
-If an old UI is shown after updating the package, restart **your existing** per-user HPC-MCP service using its normal administrator-free workflow, refresh the ChatGPT connection's tools/resources, and open a new File Manager UI. The current resource is `ui://mcp-file-manager/v23/app.html`. Older v16–v22 resources remain present and unchanged for compatibility.
+If an old UI is shown after updating the package, restart **your existing** per-user HPC-MCP service using its normal administrator-free workflow, refresh the ChatGPT connection's tools/resources, and open a new File Manager UI. The new resource URI is `ui://mcp-file-manager/v29/app.html`; old v16–v28 resources remain addressable, with v24 preserving each host’s original bytes.
+
+### Compact file launcher (UI v29)
+
+In a chat, opening a file displays a compact card with its **filename**, server **sham/ohtaka**, file type and **開く** button. Press the button to request fullscreen **inside ChatGPT**, where the unchanged file viewer loads. Closing fullscreen returns to the compact card. On iPhone, the native **Open with HPC MCP** button may appear before the embedded app becomes visible; its text is controlled by ChatGPT and may not show the filename. The app's own card labels individual files. If the host does not support fullscreen, the card reports this instead of expanding inline.
+
+### Read-only PNG/JPEG/GIF/WebP preview (UI v27)
+
+Open an authorized absolute image file path or choose an image from File Explorer. The UI verifies its raster signature, assembles bounded revision-pinned chunks, and displays the result in a dedicated image pane. Click the image to toggle fitted/original size; use Reload to fetch changed images. Image tabs do not allow text search, editing, Git History, or Load more. SVG, PDF, TIFF, and remote Markdown images are not supported. The default file-size limit is 2 MiB, with an image-specific maximum of 4 MiB.
+
+### Read-only PDF preview (UI v28)
+
+Enter an authorized absolute path ending in `.pdf` or select the PDF from Explorer. The app renders the document offline using bundled PDF.js. Use **Previous**, **Next**, the page number field and **Go** to navigate; use **−**, **+**, and **Fit** to change zoom. **Text** extracts text from the current page for copying when available. Files remain read-only and PDF JavaScript/attachments/links are not executed. Existing default cap is 2 MiB (hard limit 8 MiB). Large, password-protected and damaged PDFs can be rejected. The page image is limited to four million pixels.
 
 ## 2. Layout and icons
 
@@ -30,6 +42,8 @@ Enter an absolute path and choose Open (eye), or select files via Explorer. Sour
 
 Changing files never writes to the remote filesystem unless you explicitly invoke an enabled save/restore operation.
 
+**Math formulas in Markdown Preview (UI v28):** write inline TeX as `$\zeta$` and block equations between `$$` delimiter lines. The bundled KaTeX renderer produces native MathML; there are no CDN requests or remote fonts. Display equations are horizontally scrollable on narrow iPhone screens. Switch to Source to see or edit the original TeX.
+
 ## 4. Copy paths and desktop application URLs
 
 The copy controls are **text-copy actions**, not launch or file-transfer operations:
@@ -37,8 +51,8 @@ The copy controls are **text-copy actions**, not launch or file-transfer operati
 | Control | Text copied | Intended desktop use |
 | --- | --- | --- |
 | **Path** (file-copy icon) | Selected absolute Linux path | Paste into a terminal or another program |
-| **Tabby** (terminal icon) | `tabby://profile?profileName=...` | Use a **saved Tabby profile** matching the editable profile name (initially `sham`) |
-| **WinSCP** (folders icon) | `winscp-sftp://SITE/absolute/directory/` | Use a saved WinSCP site or host matching the editable name (initially `sham`) |
+| **Tabby** (terminal icon) | `tabby://profile?profileName=...` | Use a **saved Tabby profile** matching the editable profile name (initially `sham` on sham, `ohtaka` on ohtaka) |
+| **WinSCP** (folders icon) | `winscp-sftp://SITE/absolute/directory/` | Use a saved WinSCP site or host matching the editable name (initially `sham` on sham, `ohtaka` on ohtaka) |
 
 WinSCP receives the **containing directory** when the selected path is an opened file, with a trailing slash to avoid triggering a file download. Values are encoded; credentials are never embedded. Confirm that the site/profile names match those installed locally.
 

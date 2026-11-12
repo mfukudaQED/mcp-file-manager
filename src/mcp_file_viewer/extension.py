@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from html import escape
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Callable
@@ -17,9 +18,18 @@ from .policy import (
     UnsupportedText,
 )
 from .viewer import FileViewer
+from .image_preview import ImagePreview, is_image_path
+from .pdf_preview import PDFPreview, is_pdf_path
+from .host_defaults import resolve_host_defaults, render_host_defaults
 
 # Bump the resource URI when shipping a new UI to avoid reusing cached host iframes.
-UI_URI = "ui://mcp-file-manager/v23/app.html"
+UI_URI = "ui://mcp-file-manager/v29/app.html"
+V28_UI_URI = "ui://mcp-file-manager/v28/app.html"
+V27_UI_URI = "ui://mcp-file-manager/v27/app.html"
+V26_UI_URI = "ui://mcp-file-manager/v26/app.html"
+V25_UI_URI = "ui://mcp-file-manager/v25/app.html"
+V24_UI_URI = "ui://mcp-file-manager/v24/app.html"
+V23_UI_URI = "ui://mcp-file-manager/v23/app.html"
 V22_UI_URI = "ui://mcp-file-manager/v22/app.html"
 V21_UI_URI = "ui://mcp-file-manager/v21/app.html"
 V20_UI_URI = "ui://mcp-file-manager/v20/app.html"
@@ -61,6 +71,18 @@ UI_V20_META = UI_V19_META
 UI_V21_META = UI_V20_META
 UI_V22_META = UI_V21_META
 UI_V23_META = UI_V22_META
+UI_V24_META = UI_V23_META
+UI_V25_META = UI_V24_META
+UI_V26_META = UI_V25_META
+UI_V27_META = UI_V26_META
+UI_V28_META = UI_V27_META
+UI_V29_META = {
+    **UI_V28_META,
+    "openai/ui": {
+        "preferredDisplayMode": "inline",
+        "availableDisplayModes": ["inline", "fullscreen"],
+    },
+}
 
 
 def register_file_viewer(
@@ -91,6 +113,8 @@ def register_file_viewer(
         max_headings=2000,
     )
     viewer = FileViewer(policy)
+    image_preview = ImagePreview(policy)
+    pdf_preview = PDFPreview(policy)
     if enable_download or enable_upload:
         from .transfer import BinaryTransfer
         transfer = BinaryTransfer(policy, upload_roots if enable_upload else ())
@@ -100,10 +124,10 @@ def register_file_viewer(
         editor = FileEditor(policy)
         git_history = GitHistory(policy, editor)
 
-    def encode(value: dict[str, Any]) -> str:
+    def encode(value: dict[str, Any], response_limit: int = limit) -> str:
         """Convert a result to bounded, readable MCP text."""
         serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-        if len(serialized) > limit:
+        if len(serialized) > response_limit:
             return json.dumps(
                 {
                     "error": {
@@ -114,18 +138,18 @@ def register_file_viewer(
             )
         return serialized
 
-    def invoke(action: Callable[[], dict[str, Any]]) -> str:
+    def invoke(action: Callable[[], dict[str, Any]], response_limit: int = limit) -> str:
         """Return safe and machine-readable errors without exposing internals."""
         try:
-            return encode(action())
+            return encode(action(), response_limit)
         except FileViewerError as exc:
-            return encode({"error": {"code": exc.code, "message": str(exc)}})
+            return encode({"error": {"code": exc.code, "message": str(exc)}}, response_limit)
         except FileNotFoundError:
-            return encode({"error": {"code": "not_found", "message": "File not found."}})
+            return encode({"error": {"code": "not_found", "message": "File not found."}}, response_limit)
         except PermissionError:
-            return encode({"error": {"code": "permission_denied", "message": "Access denied."}})
+            return encode({"error": {"code": "permission_denied", "message": "Access denied."}}, response_limit)
         except (IsADirectoryError, NotADirectoryError, ValueError, OSError):
-            return encode({"error": {"code": "invalid_request", "message": "Invalid file request."}})
+            return encode({"error": {"code": "invalid_request", "message": "Invalid file request."}}, response_limit)
 
     # Preserve v16's exact HTML bytes; old resource URIs must never serve v17.
     @mcp.resource(V16_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v16)", meta=UI_DISPLAY_META)
@@ -178,10 +202,55 @@ def register_file_viewer(
         """Preserve the published v22 UI resource unchanged."""
         return files("mcp_file_viewer").joinpath("ui/app_v22.html").read_text(encoding="utf-8")
 
-    @mcp.resource(UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v23)", meta=UI_V23_META)
-    def file_manager_ui() -> str:
-        """Serve the viewer with manual continuation after the first 1,000 lines."""
+    @mcp.resource(V23_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v23)", meta=UI_V23_META)
+    def file_manager_ui_v23() -> str:
+        """Preserve the published UI v23 byte-for-byte."""
         return files("mcp_file_viewer").joinpath("ui/app_v23.html").read_text(encoding="utf-8")
+
+    @mcp.resource(V24_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v24)", meta=UI_V24_META)
+    def file_manager_ui_v24() -> str:
+        """Preserve each host's pre-unification UI v24 bytes."""
+        host, _, _ = resolve_host_defaults()
+        resource = "ui/app_v24_ohtaka.html" if host == "ohtaka" else "ui/app_v24.html"
+        return files("mcp_file_viewer").joinpath(resource).read_text(encoding="utf-8")
+
+    @mcp.resource(V25_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v25)", meta=UI_V25_META)
+    def file_manager_ui_v25() -> str:
+        """Preserve the original ohtaka UI v25 resource."""
+        return files("mcp_file_viewer").joinpath("ui/app_v25.html").read_text(encoding="utf-8")
+
+    @mcp.resource(V26_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v26)", meta=UI_V26_META)
+    def file_manager_ui_v26() -> str:
+        """Preserve the original unified v26 HTML and host defaults."""
+        _, tabby_profile, winscp_site = resolve_host_defaults()
+        template = files("mcp_file_viewer").joinpath("ui/app_v26.html").read_text(encoding="utf-8")
+        return render_host_defaults(template, tabby_profile, winscp_site)
+
+    @mcp.resource(V27_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v27, images)", meta=UI_V27_META)
+    def file_manager_ui_v27() -> str:
+        """Preserve the original v27 image-preview UI."""
+        _, tabby_profile, winscp_site = resolve_host_defaults()
+        template = files("mcp_file_viewer").joinpath("ui/app_v27.html").read_text(encoding="utf-8")
+        return render_host_defaults(template, tabby_profile, winscp_site)
+
+    @mcp.resource(V28_UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v28, PDF)", meta=UI_V28_META)
+    def file_manager_ui_v28() -> str:
+        """Preserve the original full-view PDF.js UI v28 resource."""
+        _, tabby_profile, winscp_site = resolve_host_defaults()
+        template = files("mcp_file_viewer").joinpath("ui/app_v28.html").read_text(encoding="utf-8")
+        return render_host_defaults(template, tabby_profile, winscp_site)
+
+    @mcp.resource(UI_URI, mime_type=UI_MIME, name="MCP File Manager (UI v29, compact)", meta=UI_V29_META)
+    def file_manager_ui() -> str:
+        """Provide compact inline file cards that expand within ChatGPT."""
+        host, tabby_profile, winscp_site = resolve_host_defaults()
+        template = files("mcp_file_viewer").joinpath("ui/app_v29.html").read_text(encoding="utf-8")
+        token = "__MCPFM_V29_HOST__"
+        if template.count(token) != 1:
+            raise ValueError("Unexpected v29 host placeholder count")
+        return render_host_defaults(template, tabby_profile, winscp_site).replace(
+            token, escape(host, quote=True)
+        )
 
     # A model-triggered tool call renders the MCP App inline by default.
     # Keep the original path-taking tool as that invocation method.
@@ -189,8 +258,15 @@ def register_file_viewer(
     def file_viewer_open(path: str) -> str:
         """Open an authorized file in the MCP File Manager widget."""
         def action() -> dict[str, Any]:
-            result = viewer.info(path)
-            result["kind"] = "markdown" if path.lower().endswith(".md") else "text"
+            if is_pdf_path(path):
+                result = pdf_preview.info(path)
+                result["kind"] = "pdf"
+            elif is_image_path(path):
+                result = image_preview.info(path)
+                result["kind"] = "image"
+            else:
+                result = viewer.info(path)
+                result["kind"] = "markdown" if path.lower().endswith(".md") else "text"
             result["ui_available"] = True
             return result
 
@@ -215,6 +291,26 @@ def register_file_viewer(
     def file_manager_open_fast(path: str) -> str:
         """Return bounded file metadata, first text and Markdown headings at once."""
         return invoke(lambda: viewer.open_fast(path))
+
+    @mcp.tool(name="file_manager_image_info", meta={"ui": {"visibility": ["app"]}})
+    def file_manager_image_info(path: str) -> str:
+        """Inspect an authorized raster image without reading it as text."""
+        return invoke(lambda: image_preview.info(path))
+
+    @mcp.tool(name="file_manager_image_chunk", meta={"ui": {"visibility": ["app"]}})
+    def file_manager_image_chunk(path: str, offset: int, revision: str) -> str:
+        """Return one revision-pinned image chunk, capped at 24 KiB binary."""
+        return invoke(lambda: image_preview.chunk(path, offset, revision), response_limit=40000)
+
+    @mcp.tool(name="file_manager_pdf_info", meta={"ui": {"visibility": ["app"]}})
+    def file_manager_pdf_info(path: str) -> str:
+        """Inspect an authorized PDF without loading its content as UTF-8 text."""
+        return invoke(lambda: pdf_preview.info(path))
+
+    @mcp.tool(name="file_manager_pdf_chunk", meta={"ui": {"visibility": ["app"]}})
+    def file_manager_pdf_chunk(path: str, offset: int, revision: str) -> str:
+        """Return a revision-pinned PDF chunk, capped at 24 KiB binary."""
+        return invoke(lambda: pdf_preview.chunk(path, offset, revision), response_limit=40000)
 
     @mcp.tool(name="file_viewer_list")
     def file_viewer_list(path: str, limit: int = 50) -> str:

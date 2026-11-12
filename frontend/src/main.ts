@@ -1,4 +1,7 @@
 import { App } from "@modelcontextprotocol/ext-apps";
+import { launchDetails, launchHost } from "./compact-launch";
+import { assembleImagePreview, isRasterImage, parseImageManifest } from "./image-preview";
+import { assemblePdfBytes, extractPdfText, isPdfPath, loadPdfDocument, parsePdfManifest, renderPdfPage, type PdfDocument } from "./pdf-preview";
 import { Vim } from "@replit/codemirror-vim";
 import { installIconTooltips } from "./icon-tooltip";
 import {
@@ -18,7 +21,8 @@ import {
   renderMarkdown, renderSource,
 } from "./presentation";
 
-const app = new App({ name: "MCP File Manager", version: "0.1.0" });
+const app = new App({ name: "MCP File Manager", version: "0.1.0" },
+  { availableDisplayModes: ["inline", "fullscreen"] });
 const el = (id: string): HTMLElement => document.getElementById(id)!;
 const input = (): HTMLInputElement => el("path") as HTMLInputElement;
 installIconTooltips();
@@ -75,7 +79,7 @@ interface OpenedFile {
   revision: string;
   totalLines: number;
   sizeBytes: number;
-  kind: "markdown" | "text";
+  kind: "markdown" | "text" | "image" | "pdf";
 }
 
 interface FileEntry {
@@ -95,9 +99,89 @@ let connected = false;
 let busy = false;
 let active: OpenedFile | null = null;
 let currentText = "";
+let activeImageUrl = "";
+interface PdfTab {
+  document: PdfDocument;
+  page: number;
+  zoom: number;
+  fit: boolean;
+}
+const pdfTabs = new Map<string, PdfTab>();
+let pdfRenderGeneration = 0;
+function discardPdf(path: string): void {
+  const item = pdfTabs.get(path);
+  pdfTabs.delete(path);
+  if (item) void item.document.destroy().catch(() => {});
+}
+
 let currentDirectory: string | null = null;
 let continuation: Cursor | null = null;
 let queuedHostPath: string | null = null;
+let currentDisplayMode: "inline" | "fullscreen" = "inline";
+
+/** Show a distinct, accessible file name on both desktop and iPhone inline cards. */
+function refreshLaunchCard(path: string | null = null): void {
+  const info = launchDetails(path ?? active?.path);
+  const title = el("launch-filename");
+  title.textContent = info.filename;
+  title.title = path ?? active?.path ?? info.filename;
+  const host = launchHost(el("launch-metadata").dataset.host);
+  el("launch-metadata").textContent = host + " · " + info.fileType;
+  el("launch-open").setAttribute("aria-label", info.filename + " をChatGPT内の全画面で開く");
+  const icon = el("launch-card").querySelector(".launch-file-icon");
+  if (icon) icon.textContent = info.fileType === "画像" ? "🖼️"
+    : info.fileType === "ファイルブラウザー" ? "📂" : "📄";
+}
+
+function launchFailure(message: string): void {
+  const target = el("launch-error");
+  target.textContent = message;
+  target.hidden = !message;
+}
+
+/** React to host changes, including the user's native close-fullscreen control. */
+function updateHostDisplayMode(mode: string): void {
+  currentDisplayMode = mode === "fullscreen" ? "fullscreen" : "inline";
+  const expanded = currentDisplayMode === "fullscreen";
+  el("viewer-shell").hidden = !expanded;
+  el("launch-card").hidden = expanded;
+  el("launch-error").hidden = expanded || !el("launch-error").textContent;
+  el("launch-open").setAttribute("aria-expanded", String(expanded));
+  if (expanded && connected && !busy && queuedHostPath) {
+    const path = queuedHostPath;
+    queuedHostPath = null;
+    void openFile(path);
+  }
+}
+
+/** Only a direct click may request fullscreen; the host can refuse the request. */
+async function requestLaunchFullscreen(): Promise<void> {
+  if (!connected) {
+    launchFailure("MCPへの接続を確認してから開いてね");
+    return;
+  }
+  const context = app.getHostContext();
+  if (!context?.availableDisplayModes?.includes("fullscreen")) {
+    launchFailure("このChatGPT画面では全画面表示が利用できません");
+    return;
+  }
+  const button = el("launch-open") as HTMLButtonElement;
+  button.disabled = true;
+  launchFailure("");
+  try {
+    const result = await app.requestDisplayMode({ mode: "fullscreen" });
+    if (result.mode !== "fullscreen") {
+      launchFailure("全画面表示はChatGPT側で許可されませんでした");
+      updateHostDisplayMode(result.mode);
+      return;
+    }
+    updateHostDisplayMode("fullscreen");
+  } catch (error) {
+    launchFailure("全画面表示に切り替えられません: " + String(error));
+  } finally {
+    button.disabled = !connected;
+  }
+}
 type LogWindow = {
   path: string; revision: string; identity: string; size_bytes: number;
   content: string; start_byte: number; end_byte: number;
@@ -290,7 +374,7 @@ function drawEditorControls(): void {
   el("edit").hidden = editing;
   el("diff").hidden = !editing;
   (el("diff") as HTMLButtonElement).disabled = !editing || busy || !editDirty;
-  (el("history") as HTMLButtonElement).disabled = !connected || busy || !active || editing || !!logWindow || active.sizeBytes > EDIT_LIMIT;
+  (el("history") as HTMLButtonElement).disabled = !connected || busy || !active || editing || !!logWindow || active.kind === "image" || active.kind === "pdf" || active.sizeBytes > EDIT_LIMIT;
   el("save").hidden = !editing;
   el("cancel-edit").hidden = !editing;
   (el("save") as HTMLButtonElement).disabled = !connected || busy || !editing || !editDirty;
@@ -307,6 +391,7 @@ interface TabSnapshot {
   mode: ViewMode;
   heading: string | null;
   outline: OutlineHeading[];
+  imageUrl?: string;
 }
 const tabs = new Map<string, TabSnapshot>();
 // At most two read-ahead requests; each key pins the file revision and line.
@@ -339,7 +424,7 @@ function snapshotCurrent(): void {
   // Log byte windows are not ordinary text revisions; preserve the prior text tab.
   if (!logWindow && active && tabs.has(active.path)) tabs.set(active.path, {
     file: active, text: currentText, cursor: continuation, mode: viewMode,
-    heading: selectedHeading, outline: outlineCache,
+    heading: selectedHeading, outline: outlineCache, imageUrl: activeImageUrl,
   });
 }
 function renderTabs(): void {
@@ -402,20 +487,23 @@ function activateTab(path: string): void {
   const tab = tabs.get(path);
   if (!tab) return;
   logWindow = null;
+  pdfRenderGeneration++;
   active = tab.file; currentText = tab.text; continuation = tab.cursor;
+  activeImageUrl = tab.imageUrl ?? "";
   viewMode = tab.mode; selectedHeading = tab.heading;
   outlineCache = tab.outline;
   input().value = active.path;
   el("filename").textContent = active.path.split("/").pop() || active.path;
   el("fullpath").textContent = active.path;
-  el("meta").textContent = String(active.totalLines) + " lines · " +
+  el("meta").textContent = (active.kind === "image" ? "Image" : active.kind === "pdf" ? "PDF" : String(active.totalLines) + " lines") + " · " +
     active.sizeBytes.toLocaleString() + " B · Read only · Cached";
   renderOutline(outlineCache); updateMatches(); drawContent();
   renderTabs(); markSelectedFile(); controls();
   const elapsed = performance.now() - startedAt;
   performanceDetail("cache", 0, null, elapsed, elapsed);
   status("Opened cached file · use Reload to check for changes");
-  scheduleInitialFill(active);
+  if (active.kind === "pdf") void displayPdfPage();
+  else scheduleInitialFill(active);
 }
 function closeTab(path: string): void {
   if (busy) return;
@@ -423,9 +511,11 @@ function closeTab(path: string): void {
   if (active?.path === path) closeHistory();
   if (active?.path === path) resetEditor();
   const current = active?.path === path;
+  pdfRenderGeneration++;
+  discardPdf(path);
   tabs.delete(path);
   if (current) {
-    active = null; logWindow = null; continuation = null; currentText = ""; outlineCache = [];
+    active = null; logWindow = null; continuation = null; currentText = ""; activeImageUrl = ""; outlineCache = [];
     initialFillGeneration++;
     selectedHeading = null;
     const fallback = [...tabs.keys()].at(-1);
@@ -436,6 +526,9 @@ function closeTab(path: string): void {
       el("outline").replaceChildren(); el("source-code").textContent = "";
       el("preview-pane").replaceChildren();
       el("preview-pane").hidden = true; el("source-pane").hidden = false;
+      el("image-pane").hidden = true; (el("image-preview") as HTMLImageElement).removeAttribute("src");
+      el("pdf-pane").hidden = true; el("pdf-canvas").replaceChildren();
+      el("pdf-text-content").textContent = "";
       updateMatches();
     }
   }
@@ -507,13 +600,21 @@ function controls(): void {
 
   (el("filename-search") as HTMLButtonElement).disabled = !enabled || !currentDirectory;
   (el("up") as HTMLButtonElement).disabled = !enabled || !currentDirectory;
-  (el("more") as HTMLButtonElement).disabled = !enabled || !continuation;
+  (el("more") as HTMLButtonElement).disabled = !enabled || !continuation || active?.kind === "image" || active?.kind === "pdf";
   el("more").hidden = !continuation;
   (el("preview-tab") as HTMLButtonElement).disabled = !enabled || active?.kind !== "markdown";
-  (el("source-tab") as HTMLButtonElement).disabled = !enabled || !active;
+  (el("source-tab") as HTMLButtonElement).disabled = !enabled || !active || active.kind === "image" || active.kind === "pdf";
+  (el("find-query") as HTMLInputElement).disabled = active?.kind === "image" || active?.kind === "pdf";
   (el("edit") as HTMLButtonElement).disabled = !enabled || !active ||
-    !!logWindow || active.sizeBytes > EDIT_LIMIT;
+    !!logWindow || active.kind === "image" || active.kind === "pdf" || active.sizeBytes > EDIT_LIMIT;
   drawEditorControls();
+  const pdf = active?.kind === "pdf" ? pdfTabs.get(active.path) : null;
+  (el("pdf-prev") as HTMLButtonElement).disabled = !enabled || !pdf || pdf.page <= 1;
+  (el("pdf-next") as HTMLButtonElement).disabled = !enabled || !pdf || pdf.page >= pdf.document.numPages;
+  for (const id of ["pdf-zoom-out", "pdf-zoom-in", "pdf-fit", "pdf-text-toggle", "pdf-go"]) {
+    (el(id) as HTMLButtonElement).disabled = !enabled || !pdf;
+  }
+  (el("pdf-page-number") as HTMLInputElement).disabled = !enabled || !pdf;
   (el("keymap-mode") as HTMLSelectElement).disabled = busy;
   el("connection").textContent = connected ? "● Connected" : "○ Disconnected";
 }
@@ -820,21 +921,36 @@ function markHeading(): void {
 function drawContent(): void {
   const source = el("source-pane");
   const preview = el("preview-pane");
-  const inPreview = viewMode === "preview" && active?.kind === "markdown";
-  source.hidden = editing || inPreview;
+  const inImage = !editing && !logWindow && active?.kind === "image";
+  const inPdf = !editing && !logWindow && active?.kind === "pdf";
+  const inPreview = !inImage && !inPdf && viewMode === "preview" && active?.kind === "markdown";
+  const imagePane = el("image-pane");
+  const imageElement = el("image-preview") as HTMLImageElement;
+  source.hidden = editing || inPreview || inImage || inPdf;
   preview.hidden = editing || !inPreview;
+  imagePane.hidden = !inImage;
+  el("pdf-pane").hidden = !inPdf;
   el("editor-pane").hidden = !editing;
-  (el("source-tab") as HTMLButtonElement).setAttribute("aria-pressed", String(!inPreview));
-  (el("preview-tab") as HTMLButtonElement).setAttribute("aria-pressed", String(inPreview));
-  el("view-note").textContent = inPreview
-    ? "Markdown preview · images hidden"
-    : (active && languageFor(active.path) ? "Syntax highlighting" : "UTF-8 text");
+  (el("source-tab") as HTMLButtonElement).setAttribute("aria-pressed", String(!inPreview && !inImage && !inPdf));
+  (el("preview-tab") as HTMLButtonElement).setAttribute("aria-pressed", String(inPreview || inImage || inPdf));
+  el("view-note").textContent = inPdf ? "PDF preview · offline canvas rendering"
+    : inImage ? "Read-only image · click image to toggle actual size"
+    : (inPreview ? "Markdown preview · images hidden"
+    : (active && languageFor(active.path) ? "Syntax highlighting" : "UTF-8 text"));
 
-  if (inPreview) {
-    renderMarkdown(preview, currentText);
+  if (inImage) {
+    imageElement.alt = active?.path.split("/").pop() ?? "Image";
+    if (imageElement.getAttribute("src") !== activeImageUrl) imageElement.src = activeImageUrl;
+    el("image-preview-note").textContent = active!.sizeBytes.toLocaleString() +
+      " bytes · preview only · click to toggle 100% size";
   } else {
-    renderSource(el("source-code"), active?.path ?? "", currentText);
-    showFindHighlights();
+    imageElement.removeAttribute("src");
+    if (inPreview) {
+      renderMarkdown(preview, currentText);
+    } else {
+      renderSource(el("source-code"), active?.path ?? "", currentText);
+      showFindHighlights();
+    }
   }
 }
 
@@ -849,6 +965,176 @@ function switchView(mode: ViewMode): void {
   snapshotCurrent();drawContent();
 }
 
+async function displayPdfPage(): Promise<void> {
+  if (active?.kind !== "pdf") return;
+  const path = active.path;
+  const pdf = pdfTabs.get(path);
+  if (!pdf) return;
+  const generation = ++pdfRenderGeneration;
+  const target = el("pdf-canvas");
+  const pageNo = pdf.page;
+  try {
+    const page = await pdf.document.getPage(pageNo);
+    if (generation !== pdfRenderGeneration || active?.path !== path) return;
+    const originalWidth = page.getViewport({ scale: 1 }).width;
+    const availableWidth = Math.max(200, Math.min(1400, el("pdf-pane").clientWidth - 12));
+    const scale = pdf.fit ? availableWidth / originalWidth : pdf.zoom;
+    const temporary = document.createElement("div");
+    status("Rendering PDF page " + pageNo + "…");
+    await renderPdfPage(page, temporary, scale);
+    if (generation !== pdfRenderGeneration || active?.path !== path) return;
+    target.replaceChildren(...Array.from(temporary.childNodes));
+    (el("pdf-page-number") as HTMLInputElement).value = String(pageNo);
+    el("pdf-page-total").textContent = "/ " + pdf.document.numPages;
+    el("pdf-zoom-label").textContent = pdf.fit ? "Fit" : Math.round(pdf.zoom * 100) + "%";
+    (el("pdf-fit") as HTMLButtonElement).setAttribute("aria-pressed", String(pdf.fit));
+    el("pdf-text-content").hidden = true;
+    el("pdf-text-content").textContent = "";
+    controls();
+    status("PDF page " + pageNo + " of " + pdf.document.numPages);
+  } catch (error) {
+    if (generation === pdfRenderGeneration && active?.path === path) {
+      status("PDF render failed: " + String(error), true);
+    }
+  }
+}
+
+async function changePdfPage(offset: number): Promise<void> {
+  if (busy || active?.kind !== "pdf") return;
+  const pdf = pdfTabs.get(active.path);
+  if (!pdf) return;
+  const next = Math.min(pdf.document.numPages, Math.max(1, pdf.page + offset));
+  if (next === pdf.page) return;
+  pdf.page = next;
+  await displayPdfPage();
+}
+
+async function jumpPdfPage(): Promise<void> {
+  if (busy || active?.kind !== "pdf") return;
+  const pdf = pdfTabs.get(active.path);
+  if (!pdf) return;
+  const page = Number((el("pdf-page-number") as HTMLInputElement).value);
+  if (!Number.isSafeInteger(page) || page < 1 || page > pdf.document.numPages) {
+    status("Enter a valid PDF page number", true);
+    return;
+  }
+  pdf.page = page;
+  await displayPdfPage();
+}
+
+async function changePdfZoom(factor: number): Promise<void> {
+  if (busy || active?.kind !== "pdf") return;
+  const pdf = pdfTabs.get(active.path);
+  if (!pdf) return;
+  if (factor === 0) {
+    pdf.fit = true;
+  } else {
+    pdf.fit = false;
+    pdf.zoom = Math.max(0.3, Math.min(3, pdf.zoom * factor));
+  }
+  await displayPdfPage();
+}
+
+async function togglePdfPageText(): Promise<void> {
+  if (busy || active?.kind !== "pdf") return;
+  const pdf = pdfTabs.get(active.path);
+  if (!pdf) return;
+  const text = el("pdf-text-content");
+  if (!text.hidden) { text.hidden = true; return; }
+  try {
+    const page = await pdf.document.getPage(pdf.page);
+    const result = await extractPdfText(page);
+    if (active?.kind !== "pdf" || pdf !== pdfTabs.get(active.path)) return;
+    text.textContent = result || "This PDF page has no extractable text.";
+    text.hidden = false;
+  } catch (error) {
+    status("Could not extract PDF text: " + String(error), true);
+  }
+}
+
+async function openPdfFile(requestedPath: string): Promise<void> {
+  await operation(async () => {
+    status("Checking PDF metadata…");
+    const timed = await timedTool("file_manager_pdf_info", { path: requestedPath });
+    const manifest = parsePdfManifest(timed.data);
+    if (manifest.path !== requestedPath) throw new Error("PDF path changed unexpectedly");
+    const data = await assemblePdfBytes(manifest,
+      (offset) => tool("file_manager_pdf_chunk", {
+        path: manifest.path, revision: manifest.revision, offset,
+      }),
+      (received, total) => status("Loading PDF " + Math.round(received / total * 100) + "%…"));
+    status("Parsing PDF locally…");
+    const document = await loadPdfDocument(data);
+    snapshotCurrent();
+    if (!tabs.has(manifest.path) && tabs.size >= MAX_TABS) {
+      const oldest = tabs.keys().next().value;
+      if (oldest) {
+        discardPdf(oldest);
+        tabs.delete(oldest);
+      }
+    }
+    discardPdf(manifest.path);
+    pdfRenderGeneration++;
+    pdfTabs.set(manifest.path, { document, page: 1, zoom: 1, fit: true });
+    initialFillGeneration++;
+    logWindow = null;
+    active = { path: manifest.path, revision: manifest.revision, totalLines: 0,
+      sizeBytes: manifest.sizeBytes, kind: "pdf" };
+    activeImageUrl = ""; currentText = ""; continuation = null; selectedHeading = null;
+    outlineCache = []; viewMode = "preview";
+    input().value = manifest.path;
+    el("filename").textContent = manifest.path.split("/").pop() || manifest.path;
+    el("fullpath").textContent = manifest.path;
+    el("meta").textContent = "PDF · " + document.numPages + " pages · " +
+      manifest.sizeBytes.toLocaleString() + " B · Read only";
+    tabs.set(manifest.path, { file: active, text: "", cursor: null, mode: "preview",
+      heading: null, outline: [] });
+    renderOutline([]); updateMatches(); renderTabs(); drawContent();
+    markSelectedFile(); setExplorerOpen(false);
+    await displayPdfPage();
+  });
+}
+
+async function openImageFile(requestedPath: string): Promise<void> {
+  await operation(async () => {
+    status("Reading image metadata…");
+    const startedAt = performance.now();
+    const timed = await timedTool("file_manager_image_info", { path: requestedPath });
+    const image = parseImageManifest(timed.data);
+    if (image.path !== requestedPath) throw new Error("Image path changed unexpectedly");
+    const dataUrl = await assembleImagePreview(image,
+      (offset) => tool("file_manager_image_chunk", {
+        path: image.path, offset, revision: image.revision,
+      }),
+      (loaded, total) => status("Loading image " + Math.round(loaded / total * 100) + "%…"));
+    snapshotCurrent();
+    if (!tabs.has(image.path) && tabs.size >= MAX_TABS) {
+      const oldest = tabs.keys().next().value;
+      if (oldest) { discardPdf(oldest); tabs.delete(oldest); }
+    }
+    initialFillGeneration++;
+    pdfRenderGeneration++;
+    logWindow = null;
+    active = { path: image.path, revision: image.revision, totalLines: 0,
+      sizeBytes: image.sizeBytes, kind: "image" };
+    activeImageUrl = dataUrl;
+    currentText = ""; continuation = null; selectedHeading = null;
+    outlineCache = []; viewMode = "preview";
+    input().value = image.path;
+    el("filename").textContent = image.path.split("/").pop() || image.path;
+    el("fullpath").textContent = image.path;
+    el("meta").textContent = image.mimeType + " · " +
+      image.sizeBytes.toLocaleString() + " B · Read only";
+    tabs.set(image.path, { file: active, text: "", cursor: null,
+      mode: viewMode, heading: null, outline: [], imageUrl: dataUrl });
+    renderOutline([]); updateMatches(); renderTabs(); drawContent();
+    markSelectedFile(); setExplorerOpen(false);
+    const elapsed = performance.now() - startedAt;
+    performanceDetail("server", elapsed, null, 0, elapsed);
+    status("Image loaded · click to toggle actual size");
+  });
+}
+
 async function openFile(path: string, forceReload = false): Promise<void> {
   if (busy) return;
   const requestedPath = path.trim();
@@ -861,6 +1147,14 @@ async function openFile(path: string, forceReload = false): Promise<void> {
   if (!forceReload && !busy && tabs.has(requestedPath)) {
     activateTab(requestedPath);
     setExplorerOpen(false);
+    return;
+  }
+  if (isRasterImage(requestedPath)) {
+    await openImageFile(requestedPath);
+    return;
+  }
+  if (isPdfPath(requestedPath)) {
+    await openPdfFile(requestedPath);
     return;
   }
   await operation(async () => {
@@ -886,15 +1180,17 @@ async function openFile(path: string, forceReload = false): Promise<void> {
     snapshotCurrent();
     if (!tabs.has(opened.path) && tabs.size >= MAX_TABS) {
       const oldest = tabs.keys().next().value;
-      if (oldest) tabs.delete(oldest);
+      if (oldest) { discardPdf(oldest); tabs.delete(oldest); }
     }
     initialFillGeneration++;
+    pdfRenderGeneration++;
     logWindow = null;
     active = opened;
     continuation = nextCursor({ kind: "lines", line: 1 }, first);
     selectedHeading = null;
     outlineCache = headings;
     currentText = first.content as string;
+    activeImageUrl = "";
     input().value = opened.path;
     el("filename").textContent = opened.path.split("/").pop() || opened.path;
     el("fullpath").textContent = opened.path;
@@ -1031,7 +1327,7 @@ function scheduleInitialFill(file: OpenedFile): void {
 }
 
 async function startEditing(): Promise<void> {
-  if (!active || editing || logWindow || active.sizeBytes > EDIT_LIMIT) return;
+  if (!active || editing || logWindow || active.kind === "image" || active.sizeBytes > EDIT_LIMIT) return;
   initialFillGeneration++;
   await operation(async () => {
     const file = active!;
@@ -1280,15 +1576,33 @@ el("find-query").addEventListener("keydown", (event: KeyboardEvent) => {
 });
 el("find-prev").addEventListener("click", () => selectMatch(-1));
 el("find-next").addEventListener("click", () => selectMatch(1));
+el("image-preview").addEventListener("click", () => {
+  el("image-preview").classList.toggle("image-natural");
+});
+el("pdf-prev").addEventListener("click", () => void changePdfPage(-1));
+el("pdf-next").addEventListener("click", () => void changePdfPage(1));
+el("pdf-go").addEventListener("click", () => void jumpPdfPage());
+el("pdf-page-number").addEventListener("keydown", (event: KeyboardEvent) => {
+  if (event.key === "Enter") { event.preventDefault(); void jumpPdfPage(); }
+});
+el("pdf-fit").addEventListener("click", () => void changePdfZoom(0));
+el("pdf-zoom-out").addEventListener("click", () => void changePdfZoom(0.8));
+el("pdf-zoom-in").addEventListener("click", () => void changePdfZoom(1.25));
+el("pdf-text-toggle").addEventListener("click", () => void togglePdfPageText());
 el("source-tab").addEventListener("click", () => switchView("source"));
 el("preview-tab").addEventListener("click", () => switchView("preview"));
+el("launch-open").addEventListener("click", () => { void requestLaunchFullscreen(); });
+app.onhostcontextchanged = (context) => {
+  if (context.displayMode) updateHostDisplayMode(context.displayMode);
+};
 
 app.ontoolinput = (params) => {
   const path = params.arguments?.path;
   if (typeof path !== "string" || !path.trim()) return;
   queuedHostPath = path;
   input().value = path;
-  if (connected && !busy) {
+  refreshLaunchCard(path);
+  if (connected && !busy && currentDisplayMode === "fullscreen") {
     queuedHostPath = null;
     void openFile(path);
   }
@@ -1296,14 +1610,14 @@ app.ontoolinput = (params) => {
 app.connect().then(() => {
   connected = true;
   status("Connected to MCP Apps host");
+  (el("launch-open") as HTMLButtonElement).disabled = false;
   controls();
-  if (queuedHostPath) {
-    const path = queuedHostPath;
-    queuedHostPath = null;
-    void openFile(path);
-  }
+  updateHostDisplayMode(app.getHostContext()?.displayMode ?? "inline");
 }).catch((error) => {
   status("Connection failed: " + String(error), true);
+  launchFailure("MCP Appsへの接続に失敗しました: " + String(error));
   controls();
 });
+refreshLaunchCard();
+updateHostDisplayMode("inline");
 controls();

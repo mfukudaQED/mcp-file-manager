@@ -2,12 +2,21 @@
 
 MCP File Manager is a lightweight file browser and text editor for remote HPC systems, embedded in ChatGPT with **MCP Apps**. It is an optional extension to an existing per-user [HPC-MCP](https://github.com/mfukudaQED/hpc-mcp) server; it does **not** require another HTTP server, a new SSH tunnel, or administrator privileges.
 
-**Version:** package `0.3.0`; current MCP Apps UI **v23** (deploy with a service restart and connector refresh). Package and UI version numbers are independent. See the [v0.3.0 release notes](docs/RELEASE_NOTES_V0.3.0.md) for changes and verification; the [v0.2.0 release notes](docs/RELEASE_NOTES_V0.2.0.md) describe the preceding release.
+**Version:** Python package **`0.4.0`** · default MCP Apps UI **v29**. This release adds compact ChatGPT file cards, offline PDF/image previews, and a unified sham/ohtaka UI. See the [v0.4.0 release notes](docs/RELEASE_NOTES_V0.4.0.md), [user guide](docs/USER_GUIDE.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+**Host-specific copy targets:** the v29 UI template is byte-identical on both hosts. The server resolves the saved Tabby profile and WinSCP site from its host name (`sham` or `ohtaka`) at resource-serving time; optional `MCP_FILE_MANAGER_TABBY_PROFILE` and `MCP_FILE_MANAGER_WINSCP_SITE` environment overrides are supported but do not need to be set. This does not modify the HPC-MCP service configuration. The published v23 and original host-specific v24/v25 resources are retained. See [Unified UI v26 integration](docs/UNIFICATION_V26_JA.md).
+
+**Raster previews (UI v27):** authorized PNG, JPEG, GIF and WebP images open in a separate read-only pane. Click an image to toggle fit-to-width and actual size. The current file-size policy applies (2 MiB by default, 4 MiB hard image cap). SVG and remote Markdown images are not previewed; PDF files use a separate v28 viewer. See [Image preview design](docs/IMAGE_PREVIEW_V27_JA.md).
+
+**Offline PDF preview (UI v28):** choose an authorized PDF from Explorer or paste its absolute path. Bundled PDF.js renders one page at a time into Canvas, with Previous/Next, page number, zoom, Fit and optional current-page text extraction. Default cap 2 MiB (up to 8 MiB if existing policy permits). There is no CDN, PDF upload, script execution or remote HTTP listener. See [PDF preview design](docs/PDF_PREVIEW_V28_JA.md).
+
+**Compact launcher (UI v29):** ChatGPT inline mode displays the selected filename, server host (sham/ohtaka), file type and an **Open** button. Clicking Open requests ChatGPT-internal fullscreen via the MCP Apps display-mode API. If fullscreen is declined, a short error is displayed. The earlier full-size v28 remains at its original URI. On iPhone the ChatGPT-native launcher label is controlled by ChatGPT, not this app; the filename appears in the app's own inline card when rendered. See [v29 compact launcher design](docs/COMPACT_LAUNCH_V29_JA.md).
 
 ## Features
 
 - Browse files and directories within an explicitly authorized filesystem root.
 - View text, source code, calculation input and Markdown documents; preview Markdown headings and rendered content.
+- Render inline (`$...$`) and display (`$$...$$`) TeX equations in Markdown Preview as native MathML, including on iPhone without external CDN requests.
 - Search within text files, navigate tabs and load bounded portions of large log files.
 - In **View** mode, automatically read the first **1,000 lines** (or to EOF). To read beyond that, click **Load more**; scrolling never starts another read. Each page is revision-pinned and bounded.
 - Edit existing small UTF-8 files with **CodeMirror 6**, syntax highlighting, search/replace, undo/redo and optional Vim keybindings.
@@ -47,7 +56,7 @@ Prerequisites: an operating per-user HPC-MCP server with a ChatGPT MCP Apps conn
 
 3. Restart your **existing per-user HPC-MCP service or Tunnel**, using its configured systemd-user or cron watchdog backend. In ChatGPT, refresh the connected plugin's tools/resources.
 
-4. Ask ChatGPT: **“Open `/path/to/authorized/work/README.md` with MCP File Manager.”** The current source targets UI v23 and retains separate unchanged v16/v17/v18/v19/v20/v21/v22 resources. UI v21 additionally collapses the file title, full path and metadata by default; open them through the File details (info) icon. Copy actions, SVG icon tooltips and the collapsed Status/diagnostics panel are retained. UI v23 keeps the initial 1,000-line preloading but restores button-only continuation in View mode. Download/Upload buttons remain removed.
+4. Ask ChatGPT: **“Open `/path/to/authorized/work/README.md` with MCP File Manager.”** The current source targets common UI v29 and retains v16–v28 legacy UI resources. UI v21 additionally collapses the file title, full path and metadata by default; open them through the File details (info) icon. Copy actions, SVG icon tooltips and the collapsed Status/diagnostics panel are retained. UI v28 retains the initial 1,000-line preloading and button-only continuation in View mode, and adds offline TeX rendering in Markdown Preview. Download/Upload buttons remain removed.
 
 For a complete walkthrough, see **[User Guide](docs/USER_GUIDE.md)**. For source installation, frontend rebuilding and troubleshooting, see **[Installation](docs/INSTALLATION.md)**.
 
@@ -71,10 +80,12 @@ conversation panel, or in another supported display surface. We do not
 register a generic file-extension handler: those handlers receive
 host-owned file resources, not paths to files on a remote HPC cluster.
 
-The UI resource declares `preferredDisplayMode: "fullscreen"` and keeps
-`inline` available. ChatGPT can honor the preference on initial render,
-but the host may still show the inline app. In that case, select **Open app
-in tab** on the rendered app to move it into the right-hand tab.
+The UI v29 resource declares `preferredDisplayMode: "inline"` and supports
+`fullscreen`. A compact card initially shows the file name, host name, type,
+and **Open** button. This button requests fullscreen **inside ChatGPT**;
+the host may refuse it. The legacy v28 resource retains its original
+fullscreen preference. On iPhone the ChatGPT-native launcher label cannot
+be customized reliably by this MCP App; open the app to see the file's card.
 
 ## Layout, tooltips and local clipboard actions
 
@@ -136,7 +147,7 @@ cd frontend
 npm ci
 npm run check
 npm run build
-cp dist/index.html ../src/mcp_file_viewer/ui/app_v23.html
+cp dist/index.html ../src/mcp_file_viewer/ui/app_v29.html
 ```
 
 When releasing a **new UI version**, change the resource URI and HTML

@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test:math": "node tests/math-preview.mjs",
+    "test:image": "node tests/image-preview.mjs",
+    "test:pdf": "node tests/pdf-preview.mjs",
+    "test:launch": "node tests/compact-launch.mjs"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
@@ -20,7 +24,10 @@
     "codemirror": "^6.0.2",
     "dompurify": "^3.4.17",
     "highlight.js": "11.11.1",
-    "marked": "16.4.1"
+    "katex": "0.18.10",
+    "marked": "16.4.1",
+    "marked-katex-extension": "5.1.13",
+    "pdfjs-dist": "5.4.394"
   },
   "devDependencies": {
     "typescript": "^5.9.0",

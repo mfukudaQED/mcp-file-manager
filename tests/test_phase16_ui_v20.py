@@ -57,7 +57,7 @@ def test_v20_legacy_resources_are_distinct(tmp_path) -> None:
     assert stub.tool_metadata["file_viewer_open"]["ui"]["resourceUri"] == UI_URI
     assert stub.tool_metadata["file_manager_panel"]["ui"]["resourceUri"] == UI_URI
     for uri, name in (
-        (UI_URI, "UI v23"),
+        (UI_URI, "UI v29"),
         (V22_UI_URI, "UI v22"),
         (V21_UI_URI, "UI v21"),
         (V20_UI_URI, "UI v20"),

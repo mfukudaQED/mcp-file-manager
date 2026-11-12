@@ -43,3 +43,10 @@ tools/
 tests/*.txt
 tests/*.disabled
 tests/phase0_stdio_probe.py
+
+# Local per-host integration snapshots: never include in releases
+.integration_preserve_*/
+.math_v25_backups_*/
+.image_preview_v27_backup_*/
+.pdf_preview_v28_backup_*/
+.compact_viewer_v29_backup_*/
